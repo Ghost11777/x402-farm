@@ -95,4 +95,12 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { q: "EURL LAURENT LAVALL" }, output: { example: { confiance: "élevée", certifie_rge: true, procedures_collectives: 0 } } } },
   { route: "GET /v1/fr/valorisation", price: "$0.20", desc: "Company valuation estimate from public financials (revenue & earnings multiples), with range. Query: ?q= or ?siren=",
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { chiffre_affaires: 16207285000, valorisation: { estimation_centrale: 15000000000 } } } } },
+  { route: "GET /v1/uk/company", price: "$0.02", desc: "UK company profile (Companies House): status, incorporation, SIC codes, registered office, accounts due dates, insolvency/charges flags. Query: ?q= or ?number=",
+    bazaar: { method: "GET", input: { q: "Tesco PLC" }, output: { example: { company_number: "00445790", name: "TESCO PLC", status: "active" } } } },
+  { route: "GET /v1/uk/officers", price: "$0.02", desc: "UK company directors/officers (Companies House): name, role, appointment/resignation, nationality. Query: ?q= or ?number=",
+    bazaar: { method: "GET", input: { number: "00445790" }, output: { example: { total: 12, officers: [{ name: "...", role: "director" }] } } } },
+  { route: "GET /v1/uk/psc", price: "$0.03", desc: "UK beneficial owners — Persons with Significant Control (Companies House), key for KYB/AML. Query: ?q= or ?number=",
+    bazaar: { method: "GET", input: { number: "00445790" }, output: { example: { total: 1, controllers: [{ name: "...", nature_of_control: ["ownership-of-shares-75-to-100-percent"] }] } } } },
+  { route: "GET /v1/uk/company-check", price: "$0.15", desc: "UK company KYB verdict in one call: status, accounts/filing compliance, insolvency history, officers, beneficial owners. Query: ?q= or ?number=",
+    bazaar: { method: "GET", input: { q: "Tesco PLC" }, output: { example: { name: "TESCO PLC", verdict: "PASS", active_officers: 12 } } } },
 ];
