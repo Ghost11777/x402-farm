@@ -3,3 +3,4 @@ node_modules/
 *.tgz
 data/
 .wallet.secret
+.buyer.secret

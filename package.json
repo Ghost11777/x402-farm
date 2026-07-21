@@ -9,9 +9,11 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.54.0",
     "@x402/core": "^2.19.0",
     "@x402/evm": "^2.19.0",
     "@x402/express": "^2.19.0",
+    "@x402/fetch": "^2.19.0",
     "express": "^4.21.0",
     "playwright": "^1.50.0",
     "turndown": "^7.2.0"
