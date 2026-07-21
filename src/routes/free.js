@@ -113,4 +113,32 @@ router.get("/free/estimation-immo", async (req, res) => {
   }
 });
 
+// Essai GRATUIT bilans : on confirme qu'on a les comptes (nb + dernier dépôt),
+// mais les chiffres (CA, résultat, bilan) sont payants.
+router.get("/free/bilans", async (req, res) => {
+  const siren = (req.query.siren || "").toString().replace(/\D/g, "");
+  if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
+  const u = process.env.INPI_USERNAME, p = process.env.INPI_PASSWORD;
+  if (!u || !p) return res.status(503).json({ error: "inpi_not_configured" });
+  try {
+    const data = await cached(`free-bilans:${siren}`, 24 * 3600_000, async () => {
+      const tk = await fetch("https://registre-national-entreprises.inpi.fr/api/sso/login", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: u, password: p }), signal: AbortSignal.timeout(12_000),
+      }).then((r) => r.json());
+      const att = await fetch(`https://registre-national-entreprises.inpi.fr/api/companies/${siren}/attachments`, {
+        headers: { authorization: `Bearer ${tk.token}` }, signal: AbortSignal.timeout(15_000),
+      }).then((r) => r.json());
+      const pdf = att.bilans || [];
+      return { siren, denomination: pdf[0]?.denomination || null,
+        comptes_annuels_deposes: pdf.length, dernier_depot: pdf[0]?.dateDepot || null,
+        derniers_exercices: [...new Set((att.bilansSaisis || []).map((b) => b.dateCloture))].sort().reverse().slice(0, 3) };
+    });
+    res.json({ ...data,
+      note: "Free trial (metadata only). Full financials — revenue, operating income, total balance sheet over 5 years — via GET /v1/fr/bilans ($0.10 x402)." });
+  } catch (e) {
+    res.status(502).json({ error: "inpi_error" });
+  }
+});
+
 export default router;
