@@ -57,4 +57,12 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { insee: "75101", annee: "2023" }, output: { example: { insee: "75101", total: 478, mutations: [{ date: "2023-06-01", valeur_fonciere: 258000, surface_bati_m2: 22 }] } } } },
   { route: "GET /v1/fr/insee-commune", price: "$0.01", desc: "INSEE commune stats: population, area, computed density, department, region, EPCI. Query: ?insee=",
     bazaar: { method: "GET", input: { insee: "97120" }, output: { example: { insee: "97120", nom: "Pointe-à-Pitre", population: 15040, densite_hab_km2: 5419 } } } },
+  { route: "GET /v1/fr/meteo", price: "$0.005", desc: "Current weather + up to 7-day forecast for any coordinates (France & overseas), French descriptions. Query: ?lat=&lon=&jours=",
+    bazaar: { method: "GET", input: { lat: "16.24", lon: "-61.53", jours: "3" }, output: { example: { actuel: { temperature: 30.7, description: "Principalement clair" }, previsions: [{ date: "2026-07-22", tmax: 31 }] } } } },
+  { route: "GET /v1/fr/rge", price: "$0.02", desc: "RGE-certified renovation contractors near a French postal code (name, trade, phone, email). Query: ?cp=&domaine=",
+    bazaar: { method: "GET", input: { cp: "97110", domaine: "Isolation" }, output: { example: { cp: "97110", artisans: [{ nom: "EURL X", domaine: "Isolation", telephone: "0590..." }] } } } },
+  { route: "GET /v1/fr/rge-check", price: "$0.01", desc: "Check whether a French company (by SIRET) is RGE-certified, with its qualifications. Query: ?siret=",
+    bazaar: { method: "GET", input: { siret: "49974034800028" }, output: { example: { siret: "49974034800028", rge: true, qualifications: [{ domaine: "Architecte" }] } } } },
+  { route: "GET /v1/fr/transport", price: "$0.01", desc: "Public-transit & mobility open datasets for a French area with GTFS/NeTEx/GBFS feed URLs. Query: ?q=",
+    bazaar: { method: "GET", input: { q: "Guadeloupe" }, output: { example: { query: "Guadeloupe", datasets: [{ titre: "...", type: "public-transit", feeds: [{ format: "GTFS", url: "https://..." }] }] } } } },
 ];

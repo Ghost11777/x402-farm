@@ -258,4 +258,92 @@ router.get("/v1/fr/insee-commune", (req, res) => {
     }));
 });
 
+// Codes météo WMO -> libellé FR
+const WMO = {
+  0: "Ciel clair", 1: "Principalement clair", 2: "Partiellement nuageux", 3: "Couvert",
+  45: "Brouillard", 48: "Brouillard givrant", 51: "Bruine légère", 53: "Bruine", 55: "Bruine dense",
+  61: "Pluie faible", 63: "Pluie", 65: "Pluie forte", 66: "Pluie verglaçante", 67: "Pluie verglaçante forte",
+  71: "Neige faible", 73: "Neige", 75: "Neige forte", 77: "Grains de neige",
+  80: "Averses faibles", 81: "Averses", 82: "Averses violentes", 85: "Averses de neige", 86: "Averses de neige fortes",
+  95: "Orage", 96: "Orage avec grêle", 99: "Orage avec forte grêle",
+};
+
+// ---- 18. Météo actuelle + prévisions (open-meteo, couvre France + DOM) ----
+router.get("/v1/fr/meteo", (req, res) => {
+  const lat = q(req, "lat"), lon = q(req, "lon");
+  if (!lat || !lon) return res.status(400).json({ error: "missing_lat_lon" });
+  const jours = Math.min(Math.max(Number(q(req, "jours")) || 3, 1), 7);
+  proxy(res, `meteo:${lat},${lon}:${jours}`, 30 * 60_000,
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=${jours}`,
+    (d) => {
+      const c = d.current || {};
+      const dly = d.daily || {};
+      return {
+        lat: d.latitude, lon: d.longitude,
+        actuel: { temperature: c.temperature_2m, humidite: c.relative_humidity_2m,
+          vent_kmh: c.wind_speed_10m, code: c.weather_code, description: WMO[c.weather_code] || null },
+        previsions: (dly.time || []).map((date, i) => ({
+          date, code: dly.weather_code?.[i], description: WMO[dly.weather_code?.[i]] || null,
+          tmin: dly.temperature_2m_min?.[i], tmax: dly.temperature_2m_max?.[i], precipitations_mm: dly.precipitation_sum?.[i] })),
+      };
+    });
+});
+
+// ---- 19. Artisans RGE (rénovation énergétique certifiés) près d'un code postal ----
+router.get("/v1/fr/rge", (req, res) => {
+  const cp = q(req, "cp");
+  if (!/^\d{5}$/.test(cp)) return res.status(400).json({ error: "invalid_cp" });
+  const domaine = q(req, "domaine");
+  const dq = domaine ? ` AND domaine:*${domaine}*` : "";
+  proxy(res, `rge:${cp}:${domaine}`, 7 * 24 * 3600_000,
+    `https://data.ademe.fr/data-fair/api/v1/datasets/liste-des-entreprises-rge-2/lines?size=20&qs=${encodeURIComponent(`code_postal:${cp}${dq}`)}`,
+    (d) => {
+      const seen = new Set();
+      const artisans = [];
+      for (const r of d.results || []) {
+        const key = r.siret;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        artisans.push({ nom: r.nom_entreprise, siret: r.siret, commune: r.commune, cp: r.code_postal,
+          domaine: r.domaine, qualification: r.nom_qualification, telephone: r.telephone,
+          email: r.email, site: r.site_internet });
+      }
+      return { cp, total: d.total, artisans };
+    });
+});
+
+// ---- 20. Vérifier si une entreprise est certifiée RGE (par SIRET) ----
+router.get("/v1/fr/rge-check", (req, res) => {
+  const siret = q(req, "siret").replace(/\D/g, "");
+  if (siret.length !== 14) return res.status(400).json({ error: "siret_must_be_14_digits" });
+  proxy(res, `rgecheck:${siret}`, 7 * 24 * 3600_000,
+    `https://data.ademe.fr/data-fair/api/v1/datasets/liste-des-entreprises-rge-2/lines?size=30&qs=${encodeURIComponent(`siret:${siret}`)}`,
+    (d) => {
+      const rows = d.results || [];
+      return { siret, rge: rows.length > 0,
+        nom: rows[0]?.nom_entreprise || null,
+        qualifications: rows.map((r) => ({ domaine: r.domaine, qualification: r.nom_qualification,
+          organisme: r.organisme, debut: r.lien_date_debut, fin: r.lien_date_fin })) };
+    });
+});
+
+// ---- 21. Jeux de données transport/mobilité pour un territoire (transport.data.gouv) ----
+router.get("/v1/fr/transport", (req, res) => {
+  const query = q(req, "q");
+  if (!query) return res.status(400).json({ error: "missing_q" });
+  proxy(res, `transport:${query}`, 24 * 3600_000,
+    `https://transport.data.gouv.fr/api/datasets`,
+    (arr) => {
+      const needle = query.toLowerCase();
+      const matches = (Array.isArray(arr) ? arr : [])
+        .filter((ds) => (ds.title || "").toLowerCase().includes(needle) || (ds.covered_area?.name || "").toLowerCase().includes(needle))
+        .slice(0, 15)
+        .map((ds) => ({ titre: ds.title, type: ds.type, territoire: ds.covered_area?.name,
+          formats: [...new Set((ds.resources || []).map((r) => r.format).filter(Boolean))],
+          feeds: (ds.resources || []).filter((r) => /GTFS|NeTEx|gbfs/i.test(r.format || "")).map((r) => ({ format: r.format, url: r.url })).slice(0, 5),
+          page: ds.page_url }));
+      return { query, total: matches.length, datasets: matches };
+    }, { timeout: 12_000 });
+});
+
 export default router;
