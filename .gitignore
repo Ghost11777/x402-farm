@@ -5,3 +5,4 @@ data/
 .wallet.secret
 .buyer.secret
 .vercel
+.gh-token
