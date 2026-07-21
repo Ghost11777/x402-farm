@@ -102,24 +102,31 @@ if (PAY_TO) {
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
   // Testnet -> facilitateur public x402.org.
   let facilitatorConfig = { url: FACILITATOR_URL };
-  if (NETWORK === "eip155:8453") {
+  const isMainnet = NETWORK === "eip155:8453";
+  if (isMainnet) {
     const { facilitator } = await import("@coinbase/x402");
     facilitatorConfig = facilitator;
   }
+  // En mainnet, on accepte plusieurs chaînes (Base + Polygon + Arbitrum) : l'agent paie
+  // depuis celle qui lui est pratique. En testnet, uniquement le réseau de test.
+  const NETWORKS = isMainnet
+    ? (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim())
+    : [NETWORK];
   const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
-  const resourceServer = new x402ResourceServer(facilitatorClient).register(NETWORK, new ExactEvmScheme());
+  let resourceServer = new x402ResourceServer(facilitatorClient);
+  for (const n of NETWORKS) resourceServer = resourceServer.register(n, new ExactEvmScheme());
   const routes = Object.fromEntries(
     CATALOG.map((e) => [
       e.route,
       {
-        accepts: { scheme: "exact", price: e.price, network: NETWORK, payTo: PAY_TO },
+        accepts: NETWORKS.map((n) => ({ scheme: "exact", price: e.price, network: n, payTo: PAY_TO })),
         description: e.desc,
         ...(e.bazaar ? { extensions: declareDiscoveryExtension(e.bazaar) } : {}),
       },
     ])
   );
   app.use(paymentMiddleware(routes, resourceServer));
-  console.log(`[x402] paywall ON — ${NETWORK} -> ${PAY_TO} via ${facilitatorConfig.url}`);
+  console.log(`[x402] paywall ON — [${NETWORKS.join(", ")}] -> ${PAY_TO} via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
 }
