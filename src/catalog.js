@@ -103,4 +103,12 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { number: "00445790" }, output: { example: { total: 1, controllers: [{ name: "...", nature_of_control: ["ownership-of-shares-75-to-100-percent"] }] } } } },
   { route: "GET /v1/uk/company-check", price: "$0.15", desc: "UK company KYB verdict in one call: status, accounts/filing compliance, insolvency history, officers, beneficial owners. Query: ?q= or ?number=",
     bazaar: { method: "GET", input: { q: "Tesco PLC" }, output: { example: { name: "TESCO PLC", verdict: "PASS", active_officers: 12 } } } },
+  { route: "GET /v1/us/company", price: "$0.02", desc: "US public company profile (SEC EDGAR): name, CIK, tickers, exchange, SIC, state, fiscal year, latest filing. Query: ?ticker= or ?cik=",
+    bazaar: { method: "GET", input: { ticker: "AAPL" }, output: { example: { cik: "0000320193", name: "Apple Inc.", exchanges: ["Nasdaq"] } } } },
+  { route: "GET /v1/us/financials", price: "$0.05", desc: "US public company key annual financials from SEC XBRL: revenue, net income, assets, liabilities, equity, cash (3 years). Query: ?ticker= or ?cik=",
+    bazaar: { method: "GET", input: { ticker: "AAPL" }, output: { example: { name: "Apple Inc.", net_income: [{ end: "2025-09-27", value: 112010000000 }] } } } },
+  { route: "GET /v1/us/filings", price: "$0.02", desc: "Recent SEC filings for a US company (10-K, 10-Q, 8-K...) with dates and document URLs. Query: ?ticker= or ?cik= &type=",
+    bazaar: { method: "GET", input: { ticker: "AAPL", type: "10-K" }, output: { example: { name: "Apple Inc.", filings: [{ form: "10-K", filed: "2025-11-01" }] } } } },
+  { route: "GET /v1/us/snapshot", price: "$0.10", desc: "One-call US company financial snapshot: revenue, growth, net income, margin, ROE, profitability from SEC XBRL. Query: ?ticker= or ?cik=",
+    bazaar: { method: "GET", input: { ticker: "AAPL" }, output: { example: { name: "Apple Inc.", revenue_growth_pct: 6.2, net_margin_pct: 24.3 } } } },
 ];

@@ -14,6 +14,7 @@ import inpiRoutes from "./routes/inpi.js";
 import scoringRoutes from "./routes/scoring.js";
 import intelRoutes from "./routes/intel.js";
 import ukRoutes from "./routes/uk.js";
+import usRoutes from "./routes/us.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -129,6 +130,7 @@ app.use(inpiRoutes);
 app.use(scoringRoutes);
 app.use(intelRoutes);
 app.use(ukRoutes);
+app.use(usRoutes);
 
 export { CATALOG };
 export default app;
