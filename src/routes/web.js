@@ -3,6 +3,7 @@ import TurndownService from "turndown";
 import { withPage } from "../lib/browser.js";
 import { assertPublicUrl } from "../lib/guard.js";
 import { cached } from "../lib/cache.js";
+import { tryWorker } from "../lib/worker-proxy.js";
 
 const router = Router();
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
@@ -16,6 +17,8 @@ function getUrlParam(req) {
 
 async function handle(req, res, fn) {
   try {
+    // Sur Vercel, déléguer au worker Mac mini (IP résidentielle) si configuré.
+    if (await tryWorker(req, res)) return;
     const url = await assertPublicUrl(getUrlParam(req));
     await fn(url);
   } catch (e) {

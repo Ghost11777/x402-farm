@@ -9,3 +9,4 @@ data/
 
 .gh-token-classic
 .admin-token
+worker/.env
