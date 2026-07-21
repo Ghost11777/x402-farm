@@ -6,3 +6,5 @@ data/
 .buyer.secret
 .vercel
 .gh-token
+
+.gh-token-classic
