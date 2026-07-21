@@ -65,4 +65,10 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { siret: "49974034800028" }, output: { example: { siret: "49974034800028", rge: true, qualifications: [{ domaine: "Architecte" }] } } } },
   { route: "GET /v1/fr/transport", price: "$0.01", desc: "Public-transit & mobility open datasets for a French area with GTFS/NeTEx/GBFS feed URLs. Query: ?q=",
     bazaar: { method: "GET", input: { q: "Guadeloupe" }, output: { example: { query: "Guadeloupe", datasets: [{ titre: "...", type: "public-transit", feeds: [{ format: "GTFS", url: "https://..." }] }] } } } },
+  { route: "GET /v1/fr/irve", price: "$0.01", desc: "EV charging stations in a French commune: operator, power, connectors, access, coords (IRVE). Query: ?insee=",
+    bazaar: { method: "GET", input: { insee: "75101" }, output: { example: { insee: "75101", bornes: [{ station: "QPARK RIVOLI", operateur: "IZIVIA", puissance_kw: 22 }] } } } },
+  { route: "GET /v1/fr/bodacc", price: "$0.02", desc: "BODACC legal announcements for a French company by SIREN (filings, sales, insolvency, changes). Query: ?siren=",
+    bazaar: { method: "GET", input: { siren: "306138900" }, output: { example: { siren: "306138900", total: 98, annonces: [{ date: "2026-07-09", type: "Avis initial", famille: "Dépôts des comptes" }] } } } },
+  { route: "GET /v1/fr/bio", price: "$0.02", desc: "Certified organic (AB) operators in France by department and/or text search: farms, processors, productions. Query: ?departement=&q=",
+    bazaar: { method: "GET", input: { departement: "971", q: "vignoble" }, output: { example: { total: 475, operateurs: [{ nom: "...", numeroBio: 136219, activites: ["Production"] }] } } } },
 ];

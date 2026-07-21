@@ -346,4 +346,49 @@ router.get("/v1/fr/transport", (req, res) => {
     }, { timeout: 12_000 });
 });
 
+// ---- 22. Bornes de recharge électrique (IRVE) par code INSEE ----
+router.get("/v1/fr/irve", (req, res) => {
+  const insee = q(req, "insee");
+  if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
+  proxy(res, `irve:${insee}`, 7 * 24 * 3600_000,
+    `https://tabular-api.data.gouv.fr/api/resources/eb76d20a-8501-400e-b336-d85724de5435/data/?code_insee_commune__exact=${encodeURIComponent(insee)}&page_size=30`,
+    (d) => ({ insee, total: (d.data || []).length, bornes: (d.data || []).map((b) => ({
+      station: b.nom_station, adresse: b.adresse_station, enseigne: b.nom_enseigne, operateur: b.nom_operateur,
+      puissance_kw: b.puissance_nominale, nb_points: b.nbre_pdc, acces: b.condition_acces,
+      id_itinerance: b.id_station_itinerance, coords: b.coordonneesXY })) }),
+    { timeout: 12_000 });
+});
+
+// ---- 23. Annonces légales BODACC d'une entreprise (par SIREN) ----
+router.get("/v1/fr/bodacc", (req, res) => {
+  const siren = q(req, "siren").replace(/\D/g, "");
+  if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
+  const where = encodeURIComponent(`registre like "${siren}"`);
+  proxy(res, `bodacc:${siren}`, 24 * 3600_000,
+    `https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records?where=${where}&limit=20&order_by=${encodeURIComponent("dateparution desc")}`,
+    (d) => ({ siren, total: d.total_count, annonces: (d.results || []).map((a) => ({
+      date: a.dateparution, type: a.typeavis_lib, famille: a.familleavis_lib,
+      commercant: a.commercant, ville: a.ville, tribunal: a.tribunal, numero_annonce: a.numeroannonce })) }),
+    { timeout: 12_000 });
+});
+
+// ---- 24. Opérateurs bio certifiés (AB) par département + recherche ----
+router.get("/v1/fr/bio", (req, res) => {
+  const dep = q(req, "departement");
+  const query = q(req, "q");
+  if (!dep && !query) return res.status(400).json({ error: "missing_departement_or_q" });
+  const params = new URLSearchParams({ nb: "20" });
+  if (dep) params.set("departements", dep);
+  if (query) params.set("q", query);
+  proxy(res, `bio:${dep}:${query}`, 7 * 24 * 3600_000,
+    `https://opendata.agencebio.org/api/gouv/operateurs/?${params.toString()}`,
+    (d) => ({ departement: dep || null, query: query || null, total: Number(d.nbTotal) || 0,
+      operateurs: (d.items || []).slice(0, 20).map((o) => ({
+        nom: o.denominationcourante || o.raisonSociale, siret: o.siret || null, numeroBio: o.numeroBio,
+        gerant: o.gerant, naf: o.codeNAF,
+        activites: (o.activites || []).map((a) => a.nom),
+        productions: (o.productions || []).map((p) => p.nom).slice(0, 8) })) }),
+    { timeout: 12_000 });
+});
+
 export default router;
