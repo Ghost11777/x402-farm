@@ -71,6 +71,7 @@ router.get("/openapi.json", (req, res) => {
       title: "x402-farm",
       version: "1.0.0",
       description: "Pay-per-call APIs for AI agents — x402 protocol, USDC on Base, no account needed.",
+      contact: { email: "laurenthalbrun@gmail.com" },
     },
     servers: [{ url: base }],
     paths,

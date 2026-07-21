@@ -38,6 +38,9 @@ app.get("/", (_req, res) =>
     endpoints: CATALOG,
   })
 );
+app.get("/favicon.ico", (_req, res) => {
+  res.type("image/x-icon").sendFile(new URL("../favicon.ico", import.meta.url).pathname);
+});
 app.get("/health", (_req, res) => res.json({ ok: true, uptime: process.uptime(), cache: cacheStats() }));
 // Selftest navigateur (URL fixe, aucune donnée utile -> pas d'abus possible)
 app.get("/selftest", async (_req, res) => {
