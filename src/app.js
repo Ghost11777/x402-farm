@@ -15,6 +15,7 @@ import scoringRoutes from "./routes/scoring.js";
 import intelRoutes from "./routes/intel.js";
 import ukRoutes from "./routes/uk.js";
 import usRoutes from "./routes/us.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -93,6 +94,7 @@ app.get("/admin/analytics", async (req, res) => {
     res.status(502).json({ error: String(e).slice(0, 200) });
   }
 });
+app.use(dashboardRoutes);
 app.use(discoveryRoutes);
 app.use(freeRoutes);
 
