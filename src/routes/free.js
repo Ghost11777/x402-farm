@@ -169,4 +169,19 @@ router.get("/free/analyse-immo", async (req, res) => {
   } catch { res.status(502).json({ error: "upstream_error" }); }
 });
 
+// Essai GRATUIT KYB : identité + statut, le verdict de conformité complet est payant.
+router.get("/free/kyb", async (req, res) => {
+  const input = (req.query.q || req.query.siren || "").toString().trim();
+  if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
+  try {
+    const r = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(input)}&per_page=1`,
+      { headers: { "user-agent": "x402-farm/0.1" }, signal: AbortSignal.timeout(10_000) });
+    const e = (await r.json()).results?.[0];
+    if (!e) return res.json({ found: false });
+    res.json({ found: true, siren: e.siren, denomination: e.nom_complet,
+      etat: e.etat_administratif === "A" ? "active" : "cessée",
+      note: "Free trial (identity). Full KYB dossier — VAT/VIES, officers, financial health, legal proceedings, compliance verdict — via GET /v1/fr/kyb ($0.20 x402)." });
+  } catch { res.status(502).json({ error: "upstream_error" }); }
+});
+
 export default router;

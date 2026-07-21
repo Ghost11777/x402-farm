@@ -83,4 +83,8 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { siren: "306138900", score: 82, niveau: "solide" } } } },
   { route: "GET /v1/fr/analyse-immo", price: "$0.15", desc: "Real-estate investment scorecard for an address: DVF value estimate + energy (DPE) + natural risks + demographics + rental yield estimate. Query: ?adresse=&surface=&type=appartement|maison",
     bazaar: { method: "GET", input: { adresse: "10 rue de Rivoli Paris", surface: "50" }, output: { example: { ville: "Paris", estimation: { prix_m2_median: 12110 }, score_investissement: 73 } } } },
+  { route: "GET /v1/fr/kyb", price: "$0.20", desc: "Know-Your-Business compliance dossier for a French company in one call: identity, VAT + VIES validation, officers, financial health (INPI), legal proceedings (BODACC), risk verdict. Free trial: /free/kyb. Query: ?q= or ?siren=",
+    bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { siren: "306138900", verdict: "CONFORME", fiscal: { tva_validee_vies: true } } } } },
+  { route: "GET /v1/fr/etude-implantation", price: "$0.25", desc: "Business location study: competitor saturation (same activity in commune), demographics, commercial real-estate prices, opportunity score. Query: ?activite=&commune=",
+    bazaar: { method: "GET", input: { activite: "boulangerie", commune: "Pointe-à-Pitre" }, output: { example: { commune: "Pointe-à-Pitre", concurrents_actifs: 56, habitants_par_concurrent: 268, score_opportunite: 45 } } } },
 ];

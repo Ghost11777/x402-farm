@@ -206,4 +206,128 @@ router.get("/v1/fr/analyse-immo", async (req, res) => {
   } catch (e) { res.status(e.status || 502).json({ error: e.message || "analysis_failed" }); }
 });
 
+// ===================== /fr/kyb =====================
+// Know Your Business : dossier de conformité fournisseur en un appel.
+// Croise : identité + TVA (calcul + validation VIES) + dirigeants + santé
+// financière (INPI bilans) + procédures légales (BODACC) + verdict.
+router.get("/v1/fr/kyb", async (req, res) => {
+  const input = q(req, "q") || q(req, "siren");
+  if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
+  try {
+    const data = await cached(`kyb:${input}`, 12 * 3600_000, async () => {
+      const search = await getJson(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(input)}&per_page=1`);
+      const e = search.results?.[0];
+      if (!e) return { found: false, query: input };
+      const siren = e.siren;
+      const key = (12 + 3 * (Number(siren) % 97)) % 97;
+      const tva = `FR${String(key).padStart(2, "0")}${siren}`;
+
+      const [vies, bodaccR, bilans] = await Promise.all([
+        settle(getJson(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/FR/vat/${key}${siren}`, 12_000)),
+        settle(getJson(`https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records?where=${encodeURIComponent(`registre like "${siren}"`)}&limit=20&order_by=${encodeURIComponent("dateparution desc")}`, 12_000)),
+        inpiBilans(siren),
+      ]);
+      const annonces = bodaccR.ok ? bodaccR.v.results || [] : [];
+      const proc = annonces.filter((a) => /procédure|redressement|liquidation|sauvegarde|cessation/i.test(`${a.familleavis_lib} ${a.typeavis_lib}`));
+      // VIES peut être throttlé (userError) -> ne pas conclure "invalide" dans ce cas
+      const viesUnavailable = vies.ok && vies.v.userError && !["VALID", "INVALID"].includes(vies.v.userError);
+      const tvaValide = !vies.ok || viesUnavailable ? null : vies.v.isValid === true;
+
+      // Drapeaux de conformité
+      const flags = [];
+      if (e.etat_administratif !== "A") flags.push({ niveau: "critique", motif: "entreprise cessée ou radiée" });
+      if (proc.some((a) => (a.dateparution || "") >= "2024-01-01")) flags.push({ niveau: "élevé", motif: "procédure collective récente (BODACC)" });
+      else if (proc.length) flags.push({ niveau: "moyen", motif: "procédure collective historique" });
+      if (tvaValide === false) flags.push({ niveau: "moyen", motif: "TVA intracommunautaire non validée par VIES" });
+      const last = bilans[0];
+      if (last && (last.resultat_courant ?? last.resultat_exploitation) < 0) flags.push({ niveau: "moyen", motif: "dernier exercice déficitaire" });
+      if (!bilans.length) flags.push({ niveau: "info", motif: "aucun compte annuel exploitable (micro-entreprise ou confidentiel)" });
+
+      const verdict = flags.some((f) => f.niveau === "critique") ? "REJET"
+        : flags.some((f) => f.niveau === "élevé") ? "VIGILANCE RENFORCÉE"
+        : flags.some((f) => f.niveau === "moyen") ? "VIGILANCE" : "CONFORME";
+
+      return {
+        siren, denomination: e.nom_complet, verdict,
+        identite: { forme_juridique: e.nature_juridique, naf: e.activite_principale, creation: e.date_creation,
+          etat: e.etat_administratif === "A" ? "active" : "cessée", effectif: e.tranche_effectif_salarie, categorie: e.categorie_entreprise },
+        fiscal: { tva_intracommunautaire: tva, tva_validee_vies: tvaValide },
+        siege: e.siege ? { siret: e.siege.siret, adresse: e.siege.adresse, ville: e.siege.libelle_commune } : null,
+        dirigeants: (e.dirigeants || []).map((d) => ({ nom: d.nom, prenoms: d.prenoms, qualite: d.qualite, denomination: d.denomination })),
+        sante_financiere: last ? { dernier_exercice: last.date, ca: last.ca, resultat: last.resultat_courant ?? last.resultat_exploitation } : null,
+        procedures_collectives: proc.length,
+        drapeaux: flags,
+        methode: "Dossier KYB : identité RNE + validation TVA VIES + dirigeants + santé financière INPI + procédures BODACC. Verdict indicatif d'aide à la décision, non un avis réglementaire LCB-FT.",
+        sources: ["recherche-entreprises", "VIES", "BODACC", "INPI RNE"],
+      };
+    });
+    res.json(data);
+  } catch (e) { res.status(e.status || 502).json({ error: e.message || "kyb_failed" }); }
+});
+
+// ===================== /fr/etude-implantation =====================
+// « Ouvrir ce type de commerce ici, bonne idée ? » Croise : concurrents (NAF+
+// commune) + démographie INSEE + immobilier commercial (DVF) -> saturation & score.
+const NAF_ALIAS = {
+  boulangerie: "10.71C", restaurant: "56.10A", coiffure: "96.02A", "salle de sport": "93.13Z",
+  pharmacie: "47.73Z", "fleuriste": "47.76Z", tabac: "47.26Z", "auto-école": "85.53Z",
+  bar: "56.30Z", opticien: "47.78A", boucherie: "47.22Z", pizzeria: "56.10C",
+};
+router.get("/v1/fr/etude-implantation", async (req, res) => {
+  const activite = q(req, "activite");
+  const commune = q(req, "commune") || q(req, "insee");
+  if (!activite || !commune) return res.status(400).json({ error: "missing_activite_or_commune" });
+  try {
+    const data = await cached(`implant:${activite}:${commune}`, 24 * 3600_000, async () => {
+      // Résoudre commune -> INSEE + démographie
+      const isInsee = /^\d{5}[AB0-9]?$/i.test(commune);
+      const communeData = await getJson(
+        isInsee ? `https://geo.api.gouv.fr/communes/${commune}?fields=nom,code,population,surface`
+                : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(commune)}&fields=nom,code,population,surface&boost=population&limit=1`
+      );
+      const c = isInsee ? communeData : communeData[0];
+      if (!c) return { found: false, commune };
+      const insee = c.code;
+      const naf = NAF_ALIAS[activite.toLowerCase()] || (/^\d{2}\.\d{2}[A-Z]?$/.test(activite) ? activite : null);
+
+      // Concurrents actifs (NAF+commune) + total entreprises commune
+      const [concurR, prixM2] = await Promise.all([
+        naf ? settle(getJson(`https://recherche-entreprises.api.gouv.fr/search?activite_principale=${naf}&code_commune=${insee}&etat_administratif=A&per_page=1`, 10_000)) : Promise.resolve({ ok: false }),
+        (async () => { for (const an of [2024, 2023]) { const d = await settle(getJson(`https://apidf-preprod.cerema.fr/dvf_opendata/mutations/?code_insee=${insee}&page_size=200&anneemut=${an}`, 12_000)); if (d.ok && d.v.results?.length) { const px = d.v.results.filter((m) => m.libnatmut === "Vente" && Number(m.valeurfonc) && Number(m.sbati) >= 9).map((m) => Number(m.valeurfonc) / Number(m.sbati)).filter((p) => p > 300 && p < 25000).sort((a, b) => a - b); if (px.length >= 5) return Math.round(px[Math.floor(px.length / 2)]); } } return null; })(),
+      ]);
+
+      const concurrents = concurR.ok ? concurR.v.total_results : null;
+      const pop = c.population || null;
+      // Paris/Lyon/Marseille : la recherche par code commune global renvoie 0 (données par arrondissement)
+      const arrondissementCommune = ["75056", "69123", "13055"].includes(insee);
+      const densiteConcurrence = concurrents && pop ? Math.round(pop / concurrents) : null;
+
+      // Score d'opportunité (0-100) : plus d'habitants/concurrent = mieux
+      let score = 50; const analyse = [];
+      if (naf == null) analyse.push("activité non reconnue — fournir un code NAF (ex. 56.10A) ou un mot-clé connu (boulangerie, restaurant, coiffure...)");
+      else if (arrondissementCommune) analyse.push("commune à arrondissements (Paris/Lyon/Marseille) : préciser l'INSEE d'arrondissement pour un décompte fiable");
+      else if (densiteConcurrence != null) {
+        if (densiteConcurrence > 3000) { score += 20; analyse.push(`marché peu saturé (${densiteConcurrence} hab./établissement)`); }
+        else if (densiteConcurrence < 1000) { score -= 20; analyse.push(`marché saturé (${densiteConcurrence} hab./établissement)`); }
+        else analyse.push(`concurrence moyenne (${densiteConcurrence} hab./établissement)`);
+      } else if (concurrents === 0) analyse.push("aucun concurrent recensé sur cette activité dans la commune (opportunité ou activité inadaptée)");
+      if (pop && pop > 20000) { score += 8; analyse.push("bassin de population significatif"); }
+      if (pop && pop < 2000) { score -= 10; analyse.push("faible population locale"); }
+      score = Math.max(0, Math.min(100, Math.round(score)));
+
+      return {
+        commune: c.nom, insee, population: pop,
+        activite, code_naf: naf,
+        concurrents_actifs: concurrents,
+        habitants_par_concurrent: densiteConcurrence,
+        prix_immobilier_m2_median: prixM2,
+        score_opportunite: score, analyse,
+        methode: "Croisement concurrents actifs (RNE, même NAF+commune) + population (INSEE) + prix immobilier (DVF). Aide à la décision d'implantation, indicatif.",
+        sources: ["recherche-entreprises", "INSEE", "DVF Cerema"],
+      };
+    });
+    res.json(data);
+  } catch (e) { res.status(e.status || 502).json({ error: e.message || "study_failed" }); }
+});
+
 export default router;
