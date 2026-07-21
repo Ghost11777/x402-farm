@@ -87,4 +87,12 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { siren: "306138900", verdict: "CONFORME", fiscal: { tva_validee_vies: true } } } } },
   { route: "GET /v1/fr/etude-implantation", price: "$0.25", desc: "Business location study: competitor saturation (same activity in commune), demographics, commercial real-estate prices, opportunity score. Query: ?activite=&commune=",
     bazaar: { method: "GET", input: { activite: "boulangerie", commune: "Pointe-à-Pitre" }, output: { example: { commune: "Pointe-à-Pitre", concurrents_actifs: 56, habitants_par_concurrent: 268, score_opportunite: 45 } } } },
+  { route: "GET /v1/fr/reseau-dirigeant", price: "$0.15", desc: "All French companies linked to a person (director search) with active/ceased flags and fraud-risk level. Query: ?nom=&prenom=",
+    bazaar: { method: "GET", input: { nom: "Arnault", prenom: "Bernard" }, output: { example: { total_societes: 40, cessees: 2, niveau_alerte: "modérée" } } } },
+  { route: "GET /v1/fr/concurrents", price: "$0.15", desc: "Competitive landscape of a French company: same-NAF rivals in its area ranked by revenue, with CA position. Query: ?q= or ?siren= &zone=departement|region",
+    bazaar: { method: "GET", input: { q: "Decathlon", zone: "departement" }, output: { example: { total_marche: 297, top_concurrents: [{ nom: "...", finances: { ca: 1000000 } }] } } } },
+  { route: "GET /v1/fr/verif-artisan", price: "$0.15", desc: "Verify a French contractor before hiring: company health, age, RGE certification, insolvency proceedings, trust level. Query: ?q= or ?siren=",
+    bazaar: { method: "GET", input: { q: "EURL LAURENT LAVALL" }, output: { example: { confiance: "élevée", certifie_rge: true, procedures_collectives: 0 } } } },
+  { route: "GET /v1/fr/valorisation", price: "$0.20", desc: "Company valuation estimate from public financials (revenue & earnings multiples), with range. Query: ?q= or ?siren=",
+    bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { chiffre_affaires: 16207285000, valorisation: { estimation_centrale: 15000000000 } } } } },
 ];
