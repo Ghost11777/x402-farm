@@ -1,0 +1,61 @@
+import { chromium } from "playwright";
+
+// Un seul navigateur partagé, un contexte jetable par requête,
+// et un sémaphore pour ne pas mettre le VPS à genoux.
+const MAX_CONCURRENT = Number(process.env.BROWSER_CONCURRENCY || 4);
+const NAV_TIMEOUT_MS = Number(process.env.NAV_TIMEOUT_MS || 25000);
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 x402-farm/0.1";
+
+let browserPromise = null;
+let active = 0;
+const queue = [];
+
+function acquire() {
+  if (active < MAX_CONCURRENT) {
+    active++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => queue.push(resolve));
+}
+
+function release() {
+  const next = queue.shift();
+  if (next) next();
+  else active--;
+}
+
+async function getBrowser() {
+  if (!browserPromise) {
+    browserPromise = chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
+    browserPromise.then((b) => b.on("disconnected", () => (browserPromise = null)));
+  }
+  return browserPromise;
+}
+
+export async function withPage(url, fn, { fullPage = false } = {}) {
+  await acquire();
+  let context;
+  try {
+    const browser = await getBrowser();
+    context = await browser.newContext({
+      userAgent: UA,
+      viewport: { width: 1280, height: fullPage ? 720 : 800 },
+      locale: "fr-FR",
+    });
+    const page = await context.newPage();
+    page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+    return await fn(page);
+  } finally {
+    if (context) await context.close().catch(() => {});
+    release();
+  }
+}
+
+export async function closeBrowser() {
+  if (browserPromise) (await browserPromise).close().catch(() => {});
+}
