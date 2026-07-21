@@ -24,6 +24,8 @@ router.get("/llms.txt", (req, res) => {
     "## Free previews",
     `- POST /free/extract {url}: first 300 chars of the markdown extraction (full: POST /v1/extract)`,
     `- GET /free/entreprise?q=: first French company result, reduced fields (full: GET /v1/fr/entreprise)`,
+    `- GET /free/entreprise-360?q=: company identity only (full 360 report: GET /v1/fr/entreprise-360)`,
+    `- GET /free/estimation-immo?adresse=: commune median €/m² only (full AVM: GET /v1/fr/estimation-immo)`,
     "",
     "## How to pay",
     "Any x402-compatible client works (@x402/fetch, x402-requests…). Call the endpoint, receive HTTP 402 with the PAYMENT-REQUIRED header, sign the USDC payment, retry. Median cost: $0.005-0.02 per call.",

@@ -9,6 +9,7 @@ import discoveryRoutes from "./routes/discovery.js";
 import freeRoutes from "./routes/free.js";
 import dataRoutes from "./routes/data.js";
 import frdataRoutes from "./routes/frdata.js";
+import compositeRoutes from "./routes/composite.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 
@@ -86,6 +87,7 @@ if (PAY_TO) {
 app.use(webRoutes);
 app.use(dataRoutes);
 app.use(frdataRoutes);
+app.use(compositeRoutes);
 
 export { CATALOG };
 export default app;

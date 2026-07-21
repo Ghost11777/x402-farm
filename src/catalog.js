@@ -71,4 +71,10 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { siren: "306138900" }, output: { example: { siren: "306138900", total: 98, annonces: [{ date: "2026-07-09", type: "Avis initial", famille: "Dépôts des comptes" }] } } } },
   { route: "GET /v1/fr/bio", price: "$0.02", desc: "Certified organic (AB) operators in France by department and/or text search: farms, processors, productions. Query: ?departement=&q=",
     bazaar: { method: "GET", input: { departement: "971", q: "vignoble" }, output: { example: { total: 475, operateurs: [{ nom: "...", numeroBio: 136219, activites: ["Production"] }] } } } },
+
+  // ===== APIs composites (valeur = agrégation / calcul, pas la donnée brute) =====
+  { route: "GET /v1/fr/entreprise-360", price: "$0.05", desc: "Full French company report in ONE call: identity, VAT, HQ, officers, establishments, finances, legal notices (BODACC), RGE cert. Aggregates 3 sources. Free trial: /free/entreprise-360. Query: ?q= or ?siren=",
+    bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { found: true, identite: { siren: "306138900", tva: "FR51306138900" }, annonces_legales: { total: 98 } } } } },
+  { route: "GET /v1/fr/estimation-immo", price: "$0.08", desc: "Real-estate price estimate (AVM) computed from real DVF sale comparables: €/m² median + range and value for a surface. Free trial: /free/estimation-immo. Query: ?adresse=&surface=&type=appartement|maison",
+    bazaar: { method: "GET", input: { adresse: "10 rue de Rivoli Paris", surface: "50", type: "appartement" }, output: { example: { ville: "Paris", prix_m2: { median: 12110 }, estimation: { valeur_estimee: 605476 } } } } },
 ];
