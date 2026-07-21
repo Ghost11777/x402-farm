@@ -50,7 +50,14 @@ app.get("/health", (_req, res) => res.json({ ok: true, uptime: process.uptime(),
 app.get("/stats", (_req, res) => res.json({ hits }));
 
 if (PAY_TO) {
-  const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
+  // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
+  // Testnet -> facilitateur public x402.org.
+  let facilitatorConfig = { url: FACILITATOR_URL };
+  if (NETWORK === "eip155:8453") {
+    const { facilitator } = await import("@coinbase/x402");
+    facilitatorConfig = facilitator;
+  }
+  const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
   const resourceServer = new x402ResourceServer(facilitatorClient).register(NETWORK, new ExactEvmScheme());
   const routes = Object.fromEntries(
     CATALOG.map((e) => [
@@ -59,7 +66,7 @@ if (PAY_TO) {
     ])
   );
   app.use(paymentMiddleware(routes, resourceServer));
-  console.log(`[x402] paywall ON — ${NETWORK} -> ${PAY_TO} via ${FACILITATOR_URL}`);
+  console.log(`[x402] paywall ON — ${NETWORK} -> ${PAY_TO} via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
 }
