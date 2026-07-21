@@ -4,3 +4,4 @@ node_modules/
 data/
 .wallet.secret
 .buyer.secret
+.vercel

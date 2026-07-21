@@ -1,4 +1,5 @@
-import { chromium } from "playwright";
+// Sur Vercel : chromium allégé @sparticuz + playwright-core. Ailleurs : Playwright complet.
+const IS_VERCEL = !!process.env.VERCEL;
 
 // Un seul navigateur partagé, un contexte jetable par requête,
 // et un sémaphore pour ne pas mettre le VPS à genoux.
@@ -24,12 +25,25 @@ function release() {
   else active--;
 }
 
+async function launch() {
+  if (IS_VERCEL) {
+    const [{ chromium }, sparticuz] = await Promise.all([
+      import("playwright-core"),
+      import("@sparticuz/chromium"),
+    ]);
+    return chromium.launch({
+      headless: true,
+      executablePath: await sparticuz.default.executablePath(),
+      args: [...sparticuz.default.args, "--disable-dev-shm-usage"],
+    });
+  }
+  const { chromium } = await import("playwright");
+  return chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+}
+
 async function getBrowser() {
   if (!browserPromise) {
-    browserPromise = chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
+    browserPromise = launch();
     browserPromise.then((b) => b.on("disconnected", () => (browserPromise = null)));
   }
   return browserPromise;

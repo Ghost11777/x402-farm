@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.js": {
+      "memory": 1769,
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}
