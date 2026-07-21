@@ -79,4 +79,8 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { adresse: "10 rue de Rivoli Paris", surface: "50", type: "appartement" }, output: { example: { ville: "Paris", prix_m2: { median: 12110 }, estimation: { valeur_estimee: 605476 } } } } },
   { route: "GET /v1/fr/bilans", price: "$0.10", desc: "French company annual accounts & financial statements (revenue, net income, capital) + list of filed accounts, via INPI RNE (auth-gated source). Query: ?siren=",
     bazaar: { method: "GET", input: { siren: "306138900" }, output: { example: { siren: "306138900", denomination: "DECATHLON", comptes_annuels_deposes: [{ date_cloture: "2024-12-31" }] } } } },
+  { route: "GET /v1/fr/score-entreprise", price: "$0.15", desc: "Company solidity/risk score 0-100 for a French company: crosses INPI financials (revenue/profit trend), BODACC legal proceedings, age, status. Replaces a paid solvency report. Free trial: /free/score-entreprise. Query: ?q= or ?siren=",
+    bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { siren: "306138900", score: 82, niveau: "solide" } } } },
+  { route: "GET /v1/fr/analyse-immo", price: "$0.15", desc: "Real-estate investment scorecard for an address: DVF value estimate + energy (DPE) + natural risks + demographics + rental yield estimate. Query: ?adresse=&surface=&type=appartement|maison",
+    bazaar: { method: "GET", input: { adresse: "10 rue de Rivoli Paris", surface: "50" }, output: { example: { ville: "Paris", estimation: { prix_m2_median: 12110 }, score_investissement: 73 } } } },
 ];

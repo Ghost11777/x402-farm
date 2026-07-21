@@ -141,4 +141,32 @@ router.get("/free/bilans", async (req, res) => {
   }
 });
 
+// Essais GRATUIT des scores : on donne le verdict brut (score + niveau), pas le détail.
+router.get("/free/score-entreprise", async (req, res) => {
+  const input = (req.query.q || req.query.siren || "").toString().trim();
+  if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
+  try {
+    const r = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(input)}&per_page=1`,
+      { headers: { "user-agent": "x402-farm/0.1" }, signal: AbortSignal.timeout(10_000) });
+    const e = (await r.json()).results?.[0];
+    if (!e) return res.json({ found: false });
+    res.json({ found: true, siren: e.siren, denomination: e.nom_complet,
+      etat: e.etat_administratif === "A" ? "active" : "cessée",
+      note: "Free trial (identity + status). Full 0-100 solidity score with financials trend, legal proceedings and reasons via GET /v1/fr/score-entreprise ($0.15 x402)." });
+  } catch { res.status(502).json({ error: "upstream_error" }); }
+});
+
+router.get("/free/analyse-immo", async (req, res) => {
+  const adresse = (req.query.adresse || "").toString().trim();
+  if (!adresse) return res.status(400).json({ error: "missing_adresse" });
+  try {
+    const geo = await fetch(`https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(adresse)}&limit=1`,
+      { signal: AbortSignal.timeout(8000) }).then((r) => r.json()).catch(() => null);
+    const f = geo?.features?.[0];
+    if (!f) return res.json({ found: false });
+    res.json({ found: true, ville: f.properties.city, cp: f.properties.postcode, insee: f.properties.citycode,
+      note: "Free trial (location only). Full scorecard — DVF value estimate, rental yield, energy, natural risks, demographics, investment score — via GET /v1/fr/analyse-immo ($0.15 x402)." });
+  } catch { res.status(502).json({ error: "upstream_error" }); }
+});
+
 export default router;
