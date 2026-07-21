@@ -12,6 +12,7 @@ import frdataRoutes from "./routes/frdata.js";
 import compositeRoutes from "./routes/composite.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
+import { logCall, analyticsEnabled } from "./lib/analytics.js";
 
 const PORT = Number(process.env.PORT || 3402);
 const PAY_TO = process.env.PAY_TO || "";
@@ -24,11 +25,20 @@ const app = express();
 app.set("trust proxy", true);
 app.use(express.json({ limit: "256kb" }));
 
-// Compteur d'appels par route (le radar lira ça)
+// Prix par "METHOD /path" pour reconnaître un appel payant et son montant
+const PRICE_BY_ROUTE = Object.fromEntries(CATALOG.map((e) => [e.route, Number(e.price.replace("$", ""))]));
+
+// Compteur en mémoire (fallback /stats) + logging persistant Supabase (fire-and-forget)
 const hits = {};
-app.use((req, _res, next) => {
-  const key = `${req.method} ${req.path}`;
-  hits[key] = (hits[key] || 0) + 1;
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  const routeKey = `${req.method} ${req.path}`;
+  hits[routeKey] = (hits[routeKey] || 0) + 1;
+  res.on("finish", () => {
+    const price = PRICE_BY_ROUTE[routeKey];
+    const paid = price !== undefined && res.statusCode >= 200 && res.statusCode < 300;
+    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") });
+  });
   next();
 });
 
@@ -54,7 +64,30 @@ app.get("/selftest", async (_req, res) => {
     res.status(500).json({ browser: "fail", error: String(e).slice(0, 300) });
   }
 });
-app.get("/stats", (_req, res) => res.json({ hits }));
+app.get("/stats", (_req, res) => res.json({ hits, analytics: analyticsEnabled }));
+
+// Dashboard analytics (revenu/conversion par route) — protégé par ADMIN_TOKEN.
+// Utilise la clé service-role côté lecture (RLS bloque l'anon en SELECT).
+app.get("/admin/analytics", async (req, res) => {
+  const token = req.get("x-admin-token") || req.query.token;
+  if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!process.env.SUPABASE_URL || !key) return res.status(503).json({ error: "analytics_not_configured" });
+  try {
+    const r = await fetch(`${process.env.SUPABASE_URL}/rest/v1/api_revenue_by_route?order=revenue_usd.desc`, {
+      headers: { apikey: key, authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    const rows = await r.json();
+    const totalRevenue = rows.reduce?.((s, x) => s + Number(x.revenue_usd || 0), 0) || 0;
+    const totalPaid = rows.reduce?.((s, x) => s + Number(x.paid_calls || 0), 0) || 0;
+    res.json({ total_revenue_usd: totalRevenue, total_paid_calls: totalPaid, by_route: rows });
+  } catch (e) {
+    res.status(502).json({ error: String(e).slice(0, 200) });
+  }
+});
 app.use(discoveryRoutes);
 app.use(freeRoutes);
 
