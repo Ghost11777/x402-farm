@@ -77,4 +77,6 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { q: "Decathlon" }, output: { example: { found: true, identite: { siren: "306138900", tva: "FR51306138900" }, annonces_legales: { total: 98 } } } } },
   { route: "GET /v1/fr/estimation-immo", price: "$0.08", desc: "Real-estate price estimate (AVM) computed from real DVF sale comparables: €/m² median + range and value for a surface. Free trial: /free/estimation-immo. Query: ?adresse=&surface=&type=appartement|maison",
     bazaar: { method: "GET", input: { adresse: "10 rue de Rivoli Paris", surface: "50", type: "appartement" }, output: { example: { ville: "Paris", prix_m2: { median: 12110 }, estimation: { valeur_estimee: 605476 } } } } },
+  { route: "GET /v1/fr/bilans", price: "$0.10", desc: "French company annual accounts & financial statements (revenue, net income, capital) + list of filed accounts, via INPI RNE (auth-gated source). Query: ?siren=",
+    bazaar: { method: "GET", input: { siren: "306138900" }, output: { example: { siren: "306138900", denomination: "DECATHLON", comptes_annuels_deposes: [{ date_cloture: "2024-12-31" }] } } } },
 ];

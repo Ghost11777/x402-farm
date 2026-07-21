@@ -10,6 +10,7 @@ import freeRoutes from "./routes/free.js";
 import dataRoutes from "./routes/data.js";
 import frdataRoutes from "./routes/frdata.js";
 import compositeRoutes from "./routes/composite.js";
+import inpiRoutes from "./routes/inpi.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -121,6 +122,7 @@ app.use(webRoutes);
 app.use(dataRoutes);
 app.use(frdataRoutes);
 app.use(compositeRoutes);
+app.use(inpiRoutes);
 
 export { CATALOG };
 export default app;
