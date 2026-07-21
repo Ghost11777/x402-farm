@@ -212,4 +212,50 @@ router.get("/v1/fr/codes-postaux", (req, res) => {
     (arr) => ({ cp, communes: (Array.isArray(arr) ? arr : []).map((c) => ({ nom: c.nomCommune, insee: c.codeCommune })) }));
 });
 
+// ---- 15. Parcelle cadastrale par coordonnées (IGN) ----
+router.get("/v1/fr/cadastre", (req, res) => {
+  const lat = q(req, "lat"), lon = q(req, "lon");
+  if (!lat || !lon) return res.status(400).json({ error: "missing_lat_lon" });
+  const geom = JSON.stringify({ type: "Point", coordinates: [Number(lon), Number(lat)] });
+  proxy(res, `cadastre:${lat},${lon}`, 30 * 24 * 3600_000,
+    `https://apicarto.ign.fr/api/cadastre/parcelle?geom=${encodeURIComponent(geom)}`,
+    (d) => {
+      const p = d.features?.[0]?.properties;
+      return p ? { idu: p.idu, section: p.section, numero: p.numero, feuille: p.feuille,
+        commune: p.nom_com, insee: p.code_insee, contenance_m2: p.contenance } : { idu: null };
+    }, { timeout: 12_000 });
+});
+
+// ---- 16. DVF : valeurs foncières (transactions immobilières réelles) ----
+router.get("/v1/fr/valeurs-foncieres", (req, res) => {
+  const insee = q(req, "insee");
+  if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
+  const annee = q(req, "annee");
+  const anneeParam = /^\d{4}$/.test(annee) ? `&anneemut=${annee}` : "";
+  proxy(res, `dvf:${insee}:${annee}`, 24 * 3600_000,
+    `https://apidf-preprod.cerema.fr/dvf_opendata/mutations/?code_insee=${encodeURIComponent(insee)}${anneeParam}&page_size=50&ordering=-datemut`,
+    (d) => ({
+      insee, total: d.count,
+      mutations: (d.results || []).map((m) => ({
+        date: m.datemut, nature: m.libnatmut, valeur_fonciere: Number(m.valeurfonc),
+        surface_bati_m2: Number(m.sbati) || null, surface_terrain_m2: Number(m.sterr) || null,
+        nb_locaux: m.nblocmut, vefa: m.vefa, parcelles: m.l_idpar })),
+    }), { timeout: 12_000 });
+});
+
+// ---- 17. Statistiques INSEE d'une commune (population, superficie, densité) ----
+router.get("/v1/fr/insee-commune", (req, res) => {
+  const insee = q(req, "insee");
+  if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
+  proxy(res, `insee:${insee}`, 30 * 24 * 3600_000,
+    `https://geo.api.gouv.fr/communes/${encodeURIComponent(insee)}?fields=nom,code,population,surface,codeDepartement,departement,codeRegion,region,siren,codeEpci,epci,centre`,
+    (c) => ({
+      insee: c.code, nom: c.nom, population: c.population,
+      superficie_ha: c.surface, superficie_km2: c.surface ? Math.round(c.surface / 100 * 100) / 100 : null,
+      densite_hab_km2: c.population && c.surface ? Math.round(c.population / (c.surface / 100)) : null,
+      departement: c.departement?.nom, region: c.region?.nom, epci: c.epci?.nom, siren: c.siren,
+      lat: c.centre?.coordinates?.[1], lon: c.centre?.coordinates?.[0],
+    }));
+});
+
 export default router;

@@ -51,4 +51,10 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { iban: "FR7630006000011234567890189" }, output: { example: { iban: "FR76...", valid: true, pays: "FR" } } } },
   { route: "GET /v1/fr/codes-postaux", price: "$0.005", desc: "Map a French postal code to its communes (name + INSEE code). Query: ?cp=",
     bazaar: { method: "GET", input: { cp: "97110" }, output: { example: { cp: "97110", communes: [{ nom: "Pointe-à-Pitre", insee: "97120" }] } } } },
+  { route: "GET /v1/fr/cadastre", price: "$0.01", desc: "French cadastral parcel at given coordinates: parcel id, section, number, surface (IGN). Query: ?lat=&lon=",
+    bazaar: { method: "GET", input: { lat: "48.8606", lon: "2.3364" }, output: { example: { idu: "75101000AI0002", section: "AI", contenance_m2: 4322 } } } },
+  { route: "GET /v1/fr/valeurs-foncieres", price: "$0.02", desc: "Real French real-estate sale prices (DVF) for a commune: date, price, surface, type. Query: ?insee=&annee=",
+    bazaar: { method: "GET", input: { insee: "75101", annee: "2023" }, output: { example: { insee: "75101", total: 478, mutations: [{ date: "2023-06-01", valeur_fonciere: 258000, surface_bati_m2: 22 }] } } } },
+  { route: "GET /v1/fr/insee-commune", price: "$0.01", desc: "INSEE commune stats: population, area, computed density, department, region, EPCI. Query: ?insee=",
+    bazaar: { method: "GET", input: { insee: "97120" }, output: { example: { insee: "97120", nom: "Pointe-à-Pitre", population: 15040, densite_hab_km2: 5419 } } } },
 ];
