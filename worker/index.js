@@ -2,7 +2,22 @@
 // sessions loggées) que Vercel proxifie via Cloudflare Tunnel. PAS de paywall ici :
 // il est privé, joignable uniquement par Vercel qui présente le WORKER_SECRET.
 import express from "express";
-import webRoutes from "../src/routes/web.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+// Charge worker/.env (WORKER_SECRET, INPI_USERNAME/PASSWORD…) sans dépendance :
+// le plist launchd n'injecte que le secret, le reste vit ici.
+try {
+  const envFile = readFileSync(join(dirname(fileURLToPath(import.meta.url)), ".env"), "utf8");
+  for (const line of envFile.split("\n")) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=("?)(.*)\2$/);
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[3];
+  }
+} catch {}
+
+const { default: webRoutes } = await import("../src/routes/web.js");
+const { default: inpiRoutes } = await import("../src/routes/inpi.js");
 
 const PORT = Number(process.env.WORKER_PORT || 4020);
 const SECRET = process.env.WORKER_SECRET || "";
@@ -19,11 +34,17 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/health", (_req, res) => res.json({ ok: true, role: "worker", uptime: process.uptime() }));
+app.get("/health", (_req, res) =>
+  res.json({ ok: true, role: "worker", uptime: process.uptime(), inpi: !!process.env.INPI_USERNAME }));
+
+// Traçabilité : permet de vérifier depuis l'extérieur qu'une réponse vient bien du mini
+app.use((_req, res, next) => { res.set("x-served-by", "macmini-worker"); next(); });
 
 // Les mêmes routes navigateur que Vercel — mais ici Playwright tourne pour de vrai,
 // avec l'IP résidentielle de la box et (à venir) des contextes navigateur connectés.
 app.use(webRoutes);
+// INPI RNE : appelé depuis l'IP résidentielle (l'INPI tolère mal les IP datacenter)
+app.use(inpiRoutes);
 
 app.listen(PORT, "127.0.0.1", () =>
   console.log(`[worker] x402-farm worker sur 127.0.0.1:${PORT} (tunnel Cloudflare devant)`)

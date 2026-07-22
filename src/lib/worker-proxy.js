@@ -6,7 +6,9 @@ const WORKER_SECRET = process.env.WORKER_SECRET || "";
 export const usesWorker = !!WORKER_URL;
 
 // Renvoie true si la requête a été servie par le worker (réponse déjà pipée).
-export async function tryWorker(req, res) {
+// opts.fallbackStatuses : statuts upstream sur lesquels on préfère le fallback local
+// (ex. 503 quand le mini n'a pas encore les credentials d'une source).
+export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
   try {
     const upstream = await fetch(`${WORKER_URL}${req.originalUrl}`, {
@@ -18,6 +20,10 @@ export async function tryWorker(req, res) {
       body: req.method === "POST" ? JSON.stringify(req.body || {}) : undefined,
       signal: AbortSignal.timeout(45_000),
     });
+    if (opts.fallbackStatuses?.includes(upstream.status)) {
+      console.warn(`[worker] upstream ${upstream.status} sur ${req.path}, fallback local`);
+      return false;
+    }
     // Recopie statut + type + corps (gère JSON et binaire PNG/PDF)
     res.status(upstream.status);
     const ct = upstream.headers.get("content-type");

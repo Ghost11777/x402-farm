@@ -2,10 +2,16 @@ import { Router } from "express";
 import { CATALOG } from "../catalog.js";
 
 const router = Router();
+const PAY_TO = process.env.PAY_TO || "";
+const NETWORKS = (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim());
 
 function baseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
+
+// Nom d'outil/skill stable dérivé de la route (ex: /v1/fr/entreprise -> fr_entreprise)
+const toolName = (path) => path.replace(/^\/v1\//, "").replace(/\//g, "_");
+const inputKeys = (e) => Object.keys(e.bazaar?.input || {});
 
 // Format standard lu par les LLM/agents pour découvrir un site
 router.get("/llms.txt", (req, res) => {
@@ -13,9 +19,10 @@ router.get("/llms.txt", (req, res) => {
   const lines = [
     "# x402-farm",
     "",
-    "> 10 pay-per-call APIs for AI agents. Payment: x402 protocol (USDC on Base, eip155:8453). No account, no API key — pay per request.",
+    `> ${CATALOG.length} pay-per-call APIs for AI agents — the deepest 🇫🇷 French business & open-data coverage in x402 (company/SIREN-SIRET, KYB, financial score, real-estate AVM, BODACC, cadastre, DVF, INSEE), plus 🇬🇧 UK Companies House, 🇺🇸 SEC EDGAR, and web tooling. x402 (USDC on Base/Polygon/Arbitrum), no account, no API key.`,
     "",
     `Machine-readable catalog: ${base}/ (JSON) and ${base}/openapi.json`,
+    `Discovery: ${base}/.well-known/x402 · ${base}/.well-known/mcp · ${base}/.well-known/agent-skills.json`,
     "Free previews (no payment): see /free/* routes below.",
     "",
     "## Paid endpoints",
@@ -77,6 +84,77 @@ router.get("/openapi.json", (req, res) => {
     },
     servers: [{ url: base }],
     paths,
+  });
+});
+
+// ===== /.well-known/x402 : manifeste de service x402 (lu par crawlers/agents) =====
+router.get("/.well-known/x402", (req, res) => {
+  const base = baseUrl(req);
+  res.json({
+    x402Version: 2,
+    name: "x402-farm",
+    description:
+      "Pay-per-call data & web APIs for AI agents — French/UK/US company data, KYB, real-estate AVM, SEC EDGAR & Companies House, web extraction. USDC on Base/Polygon/Arbitrum, no account, no API key.",
+    payment: { protocol: "x402", networks: NETWORKS, asset: "USDC", payTo: PAY_TO },
+    discovery: {
+      catalog: `${base}/`,
+      openapi: `${base}/openapi.json`,
+      llms: `${base}/llms.txt`,
+      mcp: `${base}/.well-known/mcp`,
+      agentSkills: `${base}/.well-known/agent-skills.json`,
+    },
+    resources: CATALOG.map((e) => {
+      const [method, path] = e.route.split(" ");
+      return { name: toolName(path), method, url: `${base}${path}`, price: e.price, description: e.desc };
+    }),
+  });
+});
+
+// ===== /.well-known/agent-skills.json : manifeste "agent skills" =====
+router.get("/.well-known/agent-skills.json", (req, res) => {
+  const base = baseUrl(req);
+  res.json({
+    schemaVersion: 1,
+    name: "x402-farm",
+    description: "Skills backed by pay-per-call x402 endpoints (USDC on Base). Each skill = one HTTP call, priced per request.",
+    skills: CATALOG.map((e) => {
+      const [method, path] = e.route.split(" ");
+      return {
+        name: toolName(path),
+        description: e.desc,
+        invocation: { type: "http", method, url: `${base}${path}` },
+        input: e.bazaar?.input || {},
+        pricing: { amount: e.price, currency: "USDC", protocol: "x402", networks: NETWORKS },
+      };
+    }),
+  });
+});
+
+// ===== /.well-known/mcp : server-card MCP (chaque outil = un endpoint payant x402) =====
+router.get("/.well-known/mcp", (req, res) => {
+  const base = baseUrl(req);
+  res.json({
+    name: "x402-farm",
+    registryName: "online.x-402/mcp",
+    registry: "https://registry.modelcontextprotocol.io/v0/servers?search=x-402",
+    version: "1.0.0",
+    description:
+      "MCP server-card. Live JSON-RPC 2.0 endpoint (Streamable HTTP) at /mcp exposing all tools. Tools are pay-per-call via x402 (USDC): call a tool, receive the x402 requirements in _meta, sign, retry with the X-PAYMENT header on POST /mcp.",
+    endpoint: `${base}/mcp`,
+    transport: { type: "streamable-http", protocol: "jsonrpc-2.0", payment: "x402", networks: NETWORKS },
+    tools: CATALOG.map((e) => {
+      const [method, path] = e.route.split(" ");
+      return {
+        name: toolName(path),
+        description: `${e.desc} (${e.price}/call via x402)`,
+        inputSchema: {
+          type: "object",
+          properties: Object.fromEntries(inputKeys(e).map((k) => [k, { type: "string" }])),
+          required: method === "GET" ? inputKeys(e) : undefined,
+        },
+        endpoint: { method, url: `${base}${path}`, price: e.price },
+      };
+    }),
   });
 });
 

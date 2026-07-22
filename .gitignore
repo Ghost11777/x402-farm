@@ -10,3 +10,6 @@ data/
 .gh-token-classic
 .admin-token
 worker/.env
+.mcp-registry-key.pem
+.cloudflare.token
+.tunnel-connector.token

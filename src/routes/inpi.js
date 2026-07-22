@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { cached } from "../lib/cache.js";
+import { tryWorker } from "../lib/worker-proxy.js";
 
 // /fr/bilans : comptes annuels & données financières via l'API INPI RNE.
 // FRICTION RÉELLE : l'endpoint exige un compte INPI avec accès API activé
@@ -82,6 +83,10 @@ function parseBilanSaisi(bs) {
 router.get("/v1/fr/bilans", async (req, res) => {
   const siren = (req.query.siren || "").toString().replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
+  // Sur Vercel : déléguer au Mac mini (IP résidentielle FR, l'INPI tolère mal les
+  // IP datacenter). Fallback local si le worker est injoignable, pas encore à jour
+  // (404) ou sans credentials INPI (503).
+  if (await tryWorker(req, res, { fallbackStatuses: [404, 503] })) return;
   try {
     const data = await cached(`bilans:${siren}`, 24 * 3600_000, async () => {
       const [company, attachments] = await Promise.all([
