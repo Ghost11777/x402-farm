@@ -17,7 +17,9 @@
 
 | # | Étape | Effort | Critère de succès |
 |---|-------|--------|-------------------|
-| 1.1 | Vérifier reprise annuaires (Glama, PulseMCP, mcp.so) — publiés ~22/07, cycle ~24-48 h | 10 min/j | fiche visible sur ≥2 annuaires |
+| 1.1 | Annuaires : ✅ Smithery publié+listé · ✅ mcp.so soumis (file de revue) · PulseMCP auto (ingère le registre, ≤1 sem) · Glama auto | 10 min/j | fiche visible sur ≥2 annuaires |
+| 1.1b | 402 « conversationnel » ✅ : alternatives (LITE + free trial) dans l'enveloppe 402 (fait 22/07) | — | mesurer : appels /partial et /free en hausse |
+| 1.1c | PR awesome-mcp-servers (section Finance) — token GitHub actuel trop restreint → Laurent (bouton Edit sur GitHub = fork auto) | 10 min | PR mergée |
 | 1.2 | Bump registre : server.json 1.0.1 (« 54 tools », description à jour) | 15 min | version active au registre |
 | 1.3 | ✅ ~~Étude stableenrich.dev~~ (fait 22/07 — voir « Enseignements stableenrich » ci-dessous) | — | — |
 | 1.4 | Diffusion humaine (Laurent) : dev.to, Discord Coinbase #x402, X | — | 1 post/canal |
