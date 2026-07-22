@@ -19,9 +19,27 @@
 |---|-------|--------|-------------------|
 | 1.1 | Vérifier reprise annuaires (Glama, PulseMCP, mcp.so) — publiés ~22/07, cycle ~24-48 h | 10 min/j | fiche visible sur ≥2 annuaires |
 | 1.2 | Bump registre : server.json 1.0.1 (« 54 tools », description à jour) | 15 min | version active au registre |
-| 1.3 | Étudier stableenrich.dev (notre comparable direct à 65 payeurs/j) : offre, prix, distribution | 1 h | 3 enseignements actionnables |
+| 1.3 | ✅ ~~Étude stableenrich.dev~~ (fait 22/07 — voir « Enseignements stableenrich » ci-dessous) | — | — |
 | 1.4 | Diffusion humaine (Laurent) : dev.to, Discord Coinbase #x402, X | — | 1 post/canal |
 | 1.5 | Sauvegarder `.wallet.secret`/`.buyer.secret` hors du Mac (Laurent) | 10 min | copie off-site chiffrée |
+
+## Enseignements stableenrich (étude 2026-07-22)
+
+Modèle : **revendeur** — 39 routes qui enveloppent 13 APIs tierces connues (Google Maps ×11,
+Serper, Exa, Hunter, FullEnrich/PDL/Clado…) derrière x402. L'agent paie sans compte, eux paient
+l'amont avec leurs clés API, marge au milieu. Multichaîne Base + **Solana** + Tempo. PAS de MCP.
+48 h mesurées (Base seulement) : 93 payeurs, **50 récurrents (>5 appels) = rétention réelle**,
+~$76/j. Le volume d'appels vient du search à $0.01 (produit d'appel), le REVENU des
+enrichissements à $0.14–0.28.
+
+**À répliquer chez nous (ajouté en Phase 2)** :
+- **Prix progressifs partial/full** : même route en version $0.02 (champs clés) et $0.08 (complète).
+  Abaisse la barrière du 1er paiement, upsell naturel.
+- **llms.txt pédagogique** : le leur enseigne des WORKFLOWS aux agents (« Agent Workflow
+  (Progressive) », « Research Methodology (Fan-out) ») — pas une simple liste de routes.
+- La demande prouvée = **utilitaires de marques connues sans compte**. Notre pari « données FR
+  souveraines » est différenciant mais plus lent ; option hybride : 2-3 utilitaires revendus
+  comme produits d'appel qui cross-sellent la data FR (gate : marge amont à calculer).
 
 ## Phase 2 — Offre à fort différentiel (dans l'ordre)
 
@@ -32,6 +50,9 @@
 | 2.3 | MCP thématiques au registre : `online.x-402/france-company-intel` (8 outils due-diligence) puis `france-immo` | ½ j | 1.1 fait (voir si le générique se propage d'abord) |
 | 2.4 | Kbis Infogreffe sur le mini (sessions loggées + captcha) | 2-3 j | radar/ventes montrent de la demande data FR OU 1er payeur externe |
 | 2.5 | Surveillance SIREN (« watch » par appel : diff depuis dernier appel) | 1 j | demande exprimée |
+| 2.6 | Prix progressifs partial/full sur kyb, score-entreprise, entreprise-360, analyse-immo | ½ j | — (enseignement stableenrich) |
+| 2.7 | Réécrire llms.txt en manuel de workflows agent (due diligence FR en 4 appels, fan-out) | 2 h | — (enseignement stableenrich) |
+| 2.8 | Étudier support Solana (payeurs invisibles pour nous aujourd'hui) | 1 j | volume Solana confirmé chez les leaders |
 
 ## Phase 3 — Boucle d'exploitation (hebdo, pilotée par le radar)
 
@@ -43,6 +64,7 @@
 ## Corrections techniques en attente (non bloquantes)
 
 - [ ] Radar : panneau « movers » (Δ payeurs 7 j) quand ≥7 snapshots.
+- [ ] Radar : angle mort Solana — on ne mesure que les payTo EVM/Base (stableenrich et d'autres encaissent aussi sur Solana).
 - [ ] Dashboard : conversion affichée biaisée par la vague d'indexation (11 k 402/j de crawlers) —
       distinguer « 402 servis à des payeurs potentiels » (visiteur ayant >1 route) du bruit.
 - [ ] `api_daily.total_calls` inclut le trafic de crawl : ajouter une vue « trafic utile ».
