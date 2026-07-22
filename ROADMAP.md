@@ -56,6 +56,15 @@ enrichissements à $0.14–0.28.
 | 2.7 | Réécrire llms.txt en manuel de workflows agent (due diligence FR en 4 appels, fan-out) | 2 h | — (enseignement stableenrich) |
 | 2.8 | Étudier support Solana (payeurs invisibles pour nous aujourd'hui) | 1 j | volume Solana confirmé chez les leaders |
 
+## Adéquation demande (analyse 402/404 du 2026-07-22)
+
+Capteur : nos propres logs. Visiteurs sélectifs (vrais agents) sondent : dns, email-validate,
+extract (58 hits/3 visiteurs), us/financials, fr/entreprise, uk/company → le catalogue est bon.
+**Bug d'adéquation trouvé et corrigé : 24 visiteurs/72 h faisaient GET sur les routes POST
+(extract/render/screenshot…) → 404 → partis.** Toutes les routes /v1 sont désormais bi-méthodes.
+Ajouts catégorie prouvée : /v1/weather + /v1/crypto/price ($0.003, sans clé). Prêts si clés
+fournies (Laurent) : /v1/search (SERPER_API_KEY, ~2 min à créer) + /v1/llm (OPENAI_API_KEY).
+
 ## Phase 3 — Boucle d'exploitation (hebdo, pilotée par le radar)
 
 1. **Lundi** : lire le radar (tendances payeurs uniques par catégorie sur 7 j).
