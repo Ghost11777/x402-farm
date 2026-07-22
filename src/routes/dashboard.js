@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { CATALOG } from "../catalog.js";
+import { ICON_512, ICON_192, ICON_180 } from "./dashboard-icons.js";
 
 // Centre de contrôle temps réel (token) : plein écran, poll JSON toutes les 6 s,
 // ticker, feed live, graphes minute/heure, statut des sous-systèmes.
@@ -114,12 +115,73 @@ router.get("/dashboard/data", async (req, res) => {
   });
 });
 
+// ---------- PWA : manifest, service worker, icônes (pas de donnée sensible) ----------
+const png = (b64) => Buffer.from(b64, "base64");
+router.get("/dashboard/icon-512.png", (_req, res) => res.type("png").set("cache-control", "public, max-age=604800").send(png(ICON_512)));
+router.get("/dashboard/icon-192.png", (_req, res) => res.type("png").set("cache-control", "public, max-age=604800").send(png(ICON_192)));
+router.get("/dashboard/icon-180.png", (_req, res) => res.type("png").set("cache-control", "public, max-age=604800").send(png(ICON_180)));
+
+router.get("/dashboard/manifest.webmanifest", (_req, res) =>
+  res.type("application/manifest+json").json({
+    name: "X402 Control",
+    short_name: "402 CTRL",
+    description: "Centre de contrôle temps réel x402-farm",
+    start_url: "/dashboard",
+    scope: "/dashboard",
+    display: "standalone",
+    orientation: "any",
+    background_color: "#04060d",
+    theme_color: "#04060d",
+    icons: [
+      { src: "/dashboard/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/dashboard/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    ],
+  }));
+
+// SW à la racine du chemin /dashboard-sw.js : portée max "/" -> peut couvrir "/dashboard"
+// (un SW servi sous /dashboard/ ne couvrirait PAS /dashboard sans slash final).
+router.get("/dashboard-sw.js", (_req, res) =>
+  res.type("application/javascript").set("cache-control", "no-cache").send(`
+const V = "x402-ctrl-v2";
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (e) => e.waitUntil(
+  caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim())));
+self.addEventListener("fetch", (e) => {
+  const u = new URL(e.request.url);
+  if (u.origin !== location.origin) return;
+  // Icônes : cache-first (immuables)
+  if (u.pathname.startsWith("/dashboard/icon")) {
+    e.respondWith(caches.open(V).then((c) => c.match(e.request)
+      .then((r) => r || fetch(e.request).then((n) => { c.put(e.request, n.clone()); return n; }))));
+    return;
+  }
+  // Coquille + données : network-first, dernier snapshot en secours (mode hors-ligne)
+  if (u.pathname === "/dashboard" || u.pathname === "/dashboard/data") {
+    const key = u.pathname; // clé fixe : le token en query ne fragmente pas le cache
+    e.respondWith(fetch(e.request).then((n) => {
+      if (n.ok) caches.open(V).then((c) => c.put(key, n.clone()));
+      return n;
+    }).catch(() => caches.open(V).then((c) => c.match(key))));
+  }
+});
+`));
+
 // ---------- Coquille HTML (tout le rendu est côté client) ----------
-router.get("/dashboard", (req, res) => {
-  if (!auth(req, res)) return;
+// Servie SANS token : elle ne contient que l'interface. Toutes les données passent
+// par /dashboard/data qui, lui, exige le token (saisi/stocké côté client -> PWA installable).
+router.get("/dashboard", (_req, res) => {
   res.type("html").send(`<!doctype html><html lang="fr"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>x402-farm — Control</title>
+<link rel="manifest" href="/dashboard/manifest.webmanifest">
+<meta name="theme-color" content="#04060d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="402 CTRL">
+<link rel="apple-touch-icon" href="/dashboard/icon-180.png">
+<link rel="icon" type="image/png" href="/dashboard/icon-192.png">
 <style>
 :root{color-scheme:dark;
   --bg:#04060d;--panel:#0a0e1cdd;--line:#1a2140;--txt:#dfe4f5;--dim:#7581a6;--faint:#4a5578;
@@ -134,7 +196,21 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
     repeating-linear-gradient(0deg,transparent 0 39px,#ffffff05 39px 40px),
     repeating-linear-gradient(90deg,transparent 0 39px,#ffffff05 39px 40px)}
 .mono,.num{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
-.wrap{display:flex;flex-direction:column;min-height:100vh;padding:14px 18px 10px;gap:12px}
+.wrap{display:flex;flex-direction:column;min-height:100vh;gap:12px;
+  padding:calc(14px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left))}
+
+/* ---- overlay token (PWA : auth côté client) ---- */
+.lock{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:#04060df2;backdrop-filter:blur(6px)}
+.lock.hidden{display:none}
+.lock-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(360px,90vw);text-align:center}
+.lock-box h3{font-size:15px;letter-spacing:.08em;margin-bottom:6px}
+.lock-box p{font-size:12px;color:var(--dim);margin-bottom:16px}
+.lock-box input{width:100%;background:#070a15;border:1px solid var(--line);border-radius:9px;color:var(--txt);
+  font-family:ui-monospace,Menlo,monospace;font-size:13px;padding:10px 12px;outline:none;text-align:center}
+.lock-box input:focus{border-color:var(--up)}
+.lock-box button{margin-top:12px;width:100%;background:var(--up);color:#04120b;border:0;border-radius:9px;
+  font-weight:700;font-size:13px;padding:10px;cursor:pointer}
+.lock-err{color:var(--down);font-size:11px;margin-top:8px;min-height:14px}
 
 /* ---- header ---- */
 header{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
@@ -316,10 +392,49 @@ footer a{color:var(--blue);text-decoration:none}
 </footer>
 </div>
 
+<div class="lock hidden" id="lock">
+  <div class="lock-box">
+    <h3>🔒 X402 CONTROL</h3>
+    <p>Entrez le token admin pour déverrouiller le centre de contrôle.</p>
+    <input id="lock-input" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password">
+    <button id="lock-btn">Déverrouiller</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
+</div>
+
 <script>
 "use strict";
-var TOKEN = new URLSearchParams(location.search).get("token");
+// Token : URL (?token=) -> localStorage -> overlay de saisie. En PWA installée,
+// l'app démarre sans query : le token vit dans localStorage.
+var TOKEN = (function(){
+  var q = new URLSearchParams(location.search).get("token");
+  if (q) {
+    try { localStorage.setItem("x402_token", q); } catch(e) {}
+    history.replaceState(null, "", "/dashboard"); // le token ne traîne pas dans l'URL/l'historique
+    return q;
+  }
+  try { return localStorage.getItem("x402_token"); } catch(e) { return null; }
+})();
 var state = { feedKeys: {}, routeRev: {}, lastRev: null, first: true };
+
+function showLock(msg){
+  document.getElementById("lock").classList.remove("hidden");
+  document.getElementById("lock-err").textContent = msg || "";
+}
+document.getElementById("lock-btn").addEventListener("click", submitToken);
+document.getElementById("lock-input").addEventListener("keydown", function(e){ if (e.key === "Enter") submitToken(); });
+function submitToken(){
+  var v = document.getElementById("lock-input").value.trim();
+  if (!v) return;
+  TOKEN = v;
+  try { localStorage.setItem("x402_token", v); } catch(e) {}
+  document.getElementById("lock").classList.add("hidden");
+  refresh();
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/dashboard-sw.js", { scope: "/dashboard" }).catch(function(){});
+}
 
 function $(id){ return document.getElementById(id); }
 function fmt(n, d){ return n == null ? "—" : Number(n).toFixed(d == null ? 0 : d); }
@@ -507,8 +622,13 @@ function renderPayers(payers){
 
 // ---- boucle principale ----
 function refresh(){
+  if (!TOKEN) { showLock(); return; }
   fetch("/dashboard/data?token=" + encodeURIComponent(TOKEN))
-    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(r){
+      if (r.status === 401) { try { localStorage.removeItem("x402_token"); } catch(e) {} TOKEN = null; showLock("Token invalide"); throw 0; }
+      if (!r.ok) throw 0;
+      return r.json();
+    })
     .then(function(d){
       // LEDs
       setLed("led-api", true);
