@@ -58,7 +58,14 @@ app.use((req, res, next) => {
         const h = res.getHeader("payment-required") || res.getHeader("PAYMENT-REQUIRED");
         const len = chunk ? Buffer.byteLength(chunk) : 0;
         if (h && len <= 2) {
-          const body = Buffer.from(String(h), "base64").toString("utf8");
+          let body = Buffer.from(String(h), "base64").toString("utf8");
+          // Conversion : proposer le chemin de moindre friction DANS le 402
+          // (version LITE moins chère et/ou essai gratuit). Champ additif,
+          // ignoré par les clients x402 stricts, lu par les agents curieux.
+          const alt = ALTERNATIVES[req.path];
+          if (alt) {
+            try { body = JSON.stringify({ ...JSON.parse(body), alternatives: alt }); } catch { /* body non-JSON : inchangé */ }
+          }
           res.setHeader("content-type", "application/json; charset=utf-8");
           res.setHeader("content-length", Buffer.byteLength(body));
           return origEnd(body, encoding, cb);
@@ -71,6 +78,26 @@ app.use((req, res, next) => {
   };
   next();
 });
+
+// Alternatives par route payante : version /partial moins chère (si elle existe au
+// catalogue) + essai gratuit /free/* (si servi). Construit une fois au démarrage.
+const FREE_ROUTES = new Set(["entreprise", "entreprise-360", "estimation-immo", "bilans", "score-entreprise", "analyse-immo", "kyb"]);
+const ALTERNATIVES = (() => {
+  const priceOf = Object.fromEntries(CATALOG.map((e) => [e.route.split(" ")[1], e.price]));
+  const out = {};
+  for (const e of CATALOG) {
+    const path = e.route.split(" ")[1];
+    if (path.endsWith("/partial")) continue;
+    const alt = {};
+    if (priceOf[`${path}/partial`]) {
+      alt.cheaper_lite_version = { url: `${path}/partial`, price: priceOf[`${path}/partial`], note: "key decision fields only" };
+    }
+    const name = path.replace("/v1/fr/", "").replace("/v1/", "");
+    if (FREE_ROUTES.has(name)) alt.free_trial = { url: `/free/${name}`, note: "limited sample, no payment" };
+    if (Object.keys(alt).length) out[path] = alt;
+  }
+  return out;
+})();
 
 // Prix par "METHOD /path" pour reconnaître un appel payant et son montant
 const PRICE_BY_ROUTE = Object.fromEntries(CATALOG.map((e) => [e.route, Number(e.price.replace("$", ""))]));
