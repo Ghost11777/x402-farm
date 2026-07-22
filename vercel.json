@@ -7,5 +7,16 @@
       "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/radar/run",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

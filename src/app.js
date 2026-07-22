@@ -17,6 +17,7 @@ import intelRoutes from "./routes/intel.js";
 import ukRoutes from "./routes/uk.js";
 import usRoutes from "./routes/us.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import radarRoutes from "./routes/radar.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -75,7 +76,7 @@ const PRICE_BY_ROUTE = Object.fromEntries(CATALOG.map((e) => [e.route, Number(e.
 
 // Compteur en mémoire (fallback /stats) + logging persistant Supabase (fire-and-forget)
 const hits = {};
-const NOLOG = /^\/(dashboard|favicon)/;
+const NOLOG = /^\/(dashboard|favicon|radar)/;
 app.use((req, res, next) => {
   if (NOLOG.test(req.path)) return next();
   const startedAt = Date.now();
@@ -139,6 +140,7 @@ app.get("/admin/analytics", async (req, res) => {
   }
 });
 app.use(dashboardRoutes);
+app.use(radarRoutes);
 app.use(discoveryRoutes);
 app.use(mcpRoutes);
 app.use(freeRoutes);

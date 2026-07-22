@@ -87,6 +87,7 @@ router.get("/dashboard/data", async (req, res) => {
     usdcBalance(process.env.PAY_TO || "0x0"),
     subsystems(),
   ]);
+  const radar = await sb("radar_latest", "?limit=12");
   const list = Array.isArray(routes) ? routes : [];
   const days = Array.isArray(daily) ? daily : [];
   const paidRoutes = list.filter((r) => r.route?.startsWith("/v1/"))
@@ -111,6 +112,7 @@ router.get("/dashboard/data", async (req, res) => {
     minutely: Array.isArray(minutely) ? minutely : [],
     payers: Array.isArray(payers) ? payers : [],
     latency: Array.isArray(latency) ? latency[0] : null,
+    radar: Array.isArray(radar) ? radar : [],
     status: { api: true, mcp: { ok: true, tools: CATALOG.length }, ...status },
   });
 });
@@ -382,6 +384,13 @@ footer a{color:var(--blue);text-decoration:none}
       <tr><th>Wallet</th><th class="num">Appels</th><th class="num">Revenu</th><th class="num">Vu</th></tr>
     </thead><tbody></tbody></table></div>
   </div>
+
+  <div class="panel span2">
+    <h2>📡 Radar marché x402 <span class="right" id="radar-sub">demande réelle on-chain, 24 h</span></h2>
+    <div class="tbl-scroll" style="max-height:280px"><table id="radar"><thead>
+      <tr><th>Service</th><th>Catégorie</th><th class="num">Payeurs ★</th><th class="num">Appels</th><th class="num">Volume</th></tr>
+    </thead><tbody></tbody></table></div>
+  </div>
 </div>
 
 <footer>
@@ -609,6 +618,22 @@ function renderRoutes(routes){
   tb.innerHTML = html || '<tr><td colspan="7" class="empty">Aucun appel payé encore</td></tr>';
 }
 
+function renderRadar(rows){
+  var tb = $("radar").querySelector("tbody"), html = "", i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var hl = r.is_ours ? ' style="background:#00e58a14"' : '';
+    html += '<tr' + hl + '><td class="mono">' + (r.is_ours ? '🏠 ' : '') + esc(r.service) + '</td>' +
+      '<td><span class="badge" style="font-size:10px;padding:2px 7px;border-radius:8px;background:#ffffff0d;color:var(--dim)">' + esc(r.category) + '</span></td>' +
+      '<td class="num" style="color:var(--up);font-weight:700">' + r.payers + '</td>' +
+      '<td class="num">' + r.txs + '</td>' +
+      '<td class="num">$' + fmt(r.volume_usd, 2) + '</td></tr>';
+  }
+  tb.innerHTML = html || '<tr><td colspan="5" class="empty">Radar pas encore lancé — /radar/run</td></tr>';
+  if (rows.length) $("radar-sub").textContent = "sweep " + relTime(rows[0].ts) + " · " +
+    rows[0].total_payers + " payeurs · $" + fmt(rows[0].total_volume, 0) + " · ★ = métrique anti-wash";
+}
+
 function renderPayers(payers){
   var tb = $("payers").querySelector("tbody"), html = "", i;
   for (i = 0; i < payers.length; i++) {
@@ -684,6 +709,7 @@ function refresh(){
       renderTape(d);
       renderRoutes(d.routes);
       renderPayers(d.payers);
+      renderRadar(d.radar || []);
 
       $("f-wallet").textContent = d.payTo || "—";
       if (d.payTo) $("f-scan").href = "https://basescan.org/address/" + d.payTo;
