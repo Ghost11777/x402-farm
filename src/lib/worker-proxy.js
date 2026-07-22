@@ -28,6 +28,8 @@ export async function tryWorker(req, res, opts = {}) {
     res.status(upstream.status);
     const ct = upstream.headers.get("content-type");
     if (ct) res.type(ct);
+    const via = upstream.headers.get("x-served-by");
+    if (via) res.set("x-served-by", via);
     const buf = Buffer.from(await upstream.arrayBuffer());
     res.send(buf);
     return true;
