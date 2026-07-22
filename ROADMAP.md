@@ -50,7 +50,7 @@ enrichissements à $0.14–0.28.
 | 2.3 | MCP thématiques au registre : `online.x-402/france-company-intel` (8 outils due-diligence) puis `france-immo` | ½ j | 1.1 fait (voir si le générique se propage d'abord) |
 | 2.4 | Kbis Infogreffe sur le mini (sessions loggées + captcha) | 2-3 j | radar/ventes montrent de la demande data FR OU 1er payeur externe |
 | 2.5 | Surveillance SIREN (« watch » par appel : diff depuis dernier appel) | 1 j | demande exprimée |
-| 2.6 | Prix progressifs partial/full sur kyb, score-entreprise, entreprise-360, analyse-immo | ½ j | — (enseignement stableenrich) |
+| 2.6 | ✅ ~~Prix progressifs partial/full~~ (fait 22/07 : 4 routes LITE $0.02-0.03, `src/lib/partial.js`) | — | — |
 | 2.7 | Réécrire llms.txt en manuel de workflows agent (due diligence FR en 4 appels, fan-out) | 2 h | — (enseignement stableenrich) |
 | 2.8 | Étudier support Solana (payeurs invisibles pour nous aujourd'hui) | 1 j | volume Solana confirmé chez les leaders |
 

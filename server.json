@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "online.x-402/mcp",
   "title": "x402-farm",
-  "description": "54 pay-per-call tools via x402 (USDC, Base): FR company data, insolvency, real estate, DNS, web.",
-  "version": "1.0.1",
+  "description": "58 pay-per-call tools via x402 (USDC, Base): FR company data, insolvency, real estate, DNS, web.",
+  "version": "1.0.2",
   "websiteUrl": "https://api.x-402.online",
   "remotes": [
     {
