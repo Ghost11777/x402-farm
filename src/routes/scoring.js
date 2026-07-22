@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { cached } from "../lib/cache.js";
+import { registerPartial } from "../lib/partial.js";
 
 // APIs DE DÉCISION : croisent plusieurs sources en un score/verdict actionnable.
 // Coût marginal ~0 (on possède déjà les sources), valeur pour l'agent = le jugement
@@ -45,6 +46,22 @@ async function inpiBilans(siren) {
     }).filter(Boolean).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   } catch { return []; }
 }
+
+// --- Versions "partial" (prix réduit, champs de décision) — avant les routes complètes ---
+registerPartial(router, "/v1/fr/score-entreprise", (d) => ({
+  siren: d.siren, denomination: d.denomination, score: d.score, niveau: d.niveau,
+  etat: d.etat, procedures_collectives: d.procedures_collectives,
+}));
+registerPartial(router, "/v1/fr/analyse-immo", (d) => ({
+  adresse: d.adresse, ville: d.ville,
+  prix_m2_median: d.estimation?.prix_m2_median, valeur_estimee: d.estimation?.valeur_estimee,
+  score_investissement: d.score_investissement,
+}));
+registerPartial(router, "/v1/fr/kyb", (d) => ({
+  siren: d.siren, denomination: d.denomination, verdict: d.verdict,
+  etat: d.identite?.etat, tva_validee_vies: d.fiscal?.tva_validee_vies,
+  procedures_collectives: d.procedures_collectives, nb_drapeaux: (d.drapeaux || []).length,
+}));
 
 // ===================== /fr/score-entreprise =====================
 // Score de solidité 0-100 croisant : finances (tendance CA/résultat INPI),

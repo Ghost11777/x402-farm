@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { cached } from "../lib/cache.js";
+import { registerPartial } from "../lib/partial.js";
 
 // APIs COMPOSITES : la valeur n'est pas la donnée (publique) mais le TRAVAIL —
 // agréger plusieurs sources en un appel, ou calculer un modèle. Ce qu'un agent
@@ -19,6 +20,11 @@ const settle = (p) => p.then((v) => ({ ok: true, v })).catch((e) => ({ ok: false
 // ===== 1. ENTREPRISE 360 : tout sur une entreprise FR en un seul appel =====
 // Agrège : identité + siège + dirigeants + finances (recherche-entreprises)
 //        + annonces légales (BODACC) + certification RGE — en parallèle.
+registerPartial(router, "/v1/fr/entreprise-360", (d) => ({
+  identite: d.identite, siege: d.siege ? { ville: d.siege.ville, cp: d.siege.cp } : null,
+  etablissements: d.etablissements, annonces_legales_total: d.annonces_legales?.total,
+}));
+
 router.get("/v1/fr/entreprise-360", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
