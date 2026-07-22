@@ -1,6 +1,10 @@
 // Le catalogue : 10 APIs, leur prix, leur description (sert aussi de page d'accueil découvrable)
 const urlBody = { bodyType: "json", method: "POST", input: { url: "https://example.com" } };
 export const CATALOG = [
+  { route: "GET /v1/weather", price: "$0.003", desc: "Worldwide weather: current conditions + 3-day forecast by lat/lon or city name. Query: ?city= or ?lat=&lon=",
+    bazaar: { method: "GET", input: { city: "Paris" }, output: { example: { current: { temperature_2m: 21.4, wind_speed_10m: 12 }, daily: { temperature_2m_max: [24] } } } } },
+  { route: "GET /v1/crypto/price", price: "$0.003", desc: "Spot prices + 24h change for any CoinGecko-listed tokens, multi-currency. Query: ?ids=bitcoin,ethereum&vs=usd,eur",
+    bazaar: { method: "GET", input: { ids: "bitcoin,ethereum", vs: "usd" }, output: { example: { prices: { bitcoin: { usd: 97250, usd_24h_change: 1.2 } } } } } },
   { route: "POST /v1/extract",       price: "$0.005", desc: "URL -> main content as clean markdown (JS-rendered, real browser). Input: {url}",
     bazaar: { ...urlBody, output: { example: { url: "https://example.com/", title: "Example Domain", markdown: "# Example Domain…" } } } },
   { route: "POST /v1/render",        price: "$0.005", desc: "URL -> full HTML after JavaScript execution. Input: {url}",
@@ -122,3 +126,15 @@ export const CATALOG = [
   { route: "GET /v1/us/snapshot", price: "$0.06", desc: "One-call US company financial snapshot: revenue, growth, net income, margin, ROE, profitability from SEC XBRL. Query: ?ticker= or ?cik=",
     bazaar: { method: "GET", input: { ticker: "AAPL" }, output: { example: { name: "Apple Inc.", revenue_growth_pct: 6.2, net_margin_pct: 24.3 } } } },
 ];
+
+// Routes à clé amont : n'apparaissent (catalogue + paywall + MCP) que si la clé est configurée.
+if (process.env.SERPER_API_KEY) CATALOG.push({
+  route: "GET /v1/search", price: "$0.005",
+  desc: "Web search (Google results via Serper): top 10 organic results + answer box + knowledge graph. Query: ?q=&gl=&hl=",
+  bazaar: { method: "GET", input: { q: "x402 protocol" }, output: { example: { results: [{ title: "x402", url: "https://x402.org", snippet: "…" }] } } },
+});
+if (process.env.OPENAI_API_KEY) CATALOG.push({
+  route: "POST /v1/llm", price: "$0.01",
+  desc: "LLM inference pay-per-call, no account: prompt in, completion out (fast frontier-lab mini model, up to 2000 output tokens). Body: {prompt, system?, max_tokens?}",
+  bazaar: { method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
+});

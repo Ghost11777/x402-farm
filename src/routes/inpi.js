@@ -80,7 +80,7 @@ function parseBilanSaisi(bs) {
 }
 
 // GET /v1/fr/bilans?siren=  -> identité + comptes annuels déposés + données financières
-router.get("/v1/fr/bilans", async (req, res) => {
+router.all("/v1/fr/bilans", async (req, res) => {
   const siren = (req.query.siren || "").toString().replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
   // Sur Vercel : déléguer au Mac mini (IP résidentielle FR, l'INPI tolère mal les

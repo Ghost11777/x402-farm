@@ -44,7 +44,7 @@ function latestAnnual(facts, concepts) {
 }
 
 // ===== /us/company : profil société cotée =====
-router.get("/v1/us/company", async (req, res) => {
+router.all("/v1/us/company", async (req, res) => {
   const input = q(req, "ticker") || q(req, "cik") || q(req, "q");
   if (!input) return res.status(400).json({ error: "missing_ticker_or_cik" });
   try {
@@ -68,7 +68,7 @@ router.get("/v1/us/company", async (req, res) => {
 });
 
 // ===== /us/financials : principaux postes financiers annuels (XBRL) =====
-router.get("/v1/us/financials", async (req, res) => {
+router.all("/v1/us/financials", async (req, res) => {
   const input = q(req, "ticker") || q(req, "cik") || q(req, "q");
   if (!input) return res.status(400).json({ error: "missing_ticker_or_cik" });
   try {
@@ -96,7 +96,7 @@ router.get("/v1/us/financials", async (req, res) => {
 });
 
 // ===== /us/filings : dépôts récents (10-K, 10-Q, 8-K...) =====
-router.get("/v1/us/filings", async (req, res) => {
+router.all("/v1/us/filings", async (req, res) => {
   const input = q(req, "ticker") || q(req, "cik") || q(req, "q");
   if (!input) return res.status(400).json({ error: "missing_ticker_or_cik" });
   const type = q(req, "type").toUpperCase();
@@ -121,7 +121,7 @@ router.get("/v1/us/filings", async (req, res) => {
 });
 
 // ===== /us/snapshot : synthèse financière + croissance (composite premium) =====
-router.get("/v1/us/snapshot", async (req, res) => {
+router.all("/v1/us/snapshot", async (req, res) => {
   const input = q(req, "ticker") || q(req, "cik") || q(req, "q");
   if (!input) return res.status(400).json({ error: "missing_ticker_or_cik" });
   try {

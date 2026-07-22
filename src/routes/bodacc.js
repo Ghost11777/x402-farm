@@ -16,7 +16,7 @@ async function bodacc(where, limit) {
 
 const parseJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
 
-router.get("/v1/fr/procedures-collectives", async (req, res) => {
+router.all("/v1/fr/procedures-collectives", async (req, res) => {
   const siren = (req.query.siren || "").toString().replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
   try {

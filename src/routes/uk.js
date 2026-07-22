@@ -30,7 +30,7 @@ async function resolveNumber(input) {
 }
 
 // ===== /uk/company : profil société =====
-router.get("/v1/uk/company", async (req, res) => {
+router.all("/v1/uk/company", async (req, res) => {
   const input = q(req, "q") || q(req, "number");
   if (!input) return res.status(400).json({ error: "missing_q_or_number" });
   try {
@@ -55,7 +55,7 @@ router.get("/v1/uk/company", async (req, res) => {
 });
 
 // ===== /uk/officers : dirigeants =====
-router.get("/v1/uk/officers", async (req, res) => {
+router.all("/v1/uk/officers", async (req, res) => {
   const input = q(req, "q") || q(req, "number");
   if (!input) return res.status(400).json({ error: "missing_q_or_number" });
   try {
@@ -74,7 +74,7 @@ router.get("/v1/uk/officers", async (req, res) => {
 
 // ===== /uk/psc : bénéficiaires effectifs (Persons with Significant Control) =====
 // Donnée clé pour KYB/AML : qui contrôle réellement la société.
-router.get("/v1/uk/psc", async (req, res) => {
+router.all("/v1/uk/psc", async (req, res) => {
   const input = q(req, "q") || q(req, "number");
   if (!input) return res.status(400).json({ error: "missing_q_or_number" });
   try {
@@ -93,7 +93,7 @@ router.get("/v1/uk/psc", async (req, res) => {
 });
 
 // ===== /uk/company-check : vérification/KYB en un appel (composite premium) =====
-router.get("/v1/uk/company-check", async (req, res) => {
+router.all("/v1/uk/company-check", async (req, res) => {
   const input = q(req, "q") || q(req, "number");
   if (!input) return res.status(400).json({ error: "missing_q_or_number" });
   try {

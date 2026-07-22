@@ -25,7 +25,7 @@ registerPartial(router, "/v1/fr/entreprise-360", (d) => ({
   etablissements: d.etablissements, annonces_legales_total: d.annonces_legales?.total,
 }));
 
-router.get("/v1/fr/entreprise-360", async (req, res) => {
+router.all("/v1/fr/entreprise-360", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {
@@ -91,7 +91,7 @@ router.get("/v1/fr/entreprise-360", async (req, res) => {
 // ===== 2. ESTIMATION IMMOBILIÈRE : AVM sur comparables DVF réels =====
 // Prend une adresse -> géocode -> trouve la commune -> récupère les ventes DVF
 // récentes -> calcule un prix au m² (médiane) et une estimation pour une surface.
-router.get("/v1/fr/estimation-immo", async (req, res) => {
+router.all("/v1/fr/estimation-immo", async (req, res) => {
   const adresse = q(req, "adresse");
   const surface = Number(q(req, "surface")) || null;
   const typeBien = (q(req, "type") || "appartement").toLowerCase(); // appartement | maison

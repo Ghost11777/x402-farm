@@ -17,7 +17,7 @@ const lastFin = (e) => { const f = e.finances || {}; const y = Object.keys(f).so
 
 // ===== /fr/reseau-dirigeant : toutes les sociétés d'une personne + drapeaux =====
 // Anti-fraude / due diligence : un dirigeant lié à des liquidations = signal.
-router.get("/v1/fr/reseau-dirigeant", async (req, res) => {
+router.all("/v1/fr/reseau-dirigeant", async (req, res) => {
   const nom = q(req, "nom");
   const prenom = q(req, "prenom");
   if (!nom) return res.status(400).json({ error: "missing_nom" });
@@ -52,7 +52,7 @@ router.get("/v1/fr/reseau-dirigeant", async (req, res) => {
 });
 
 // ===== /fr/concurrents : paysage concurrentiel d'une entreprise, avec finances =====
-router.get("/v1/fr/concurrents", async (req, res) => {
+router.all("/v1/fr/concurrents", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   const zone = q(req, "zone") || "departement"; // departement | region | national
@@ -89,7 +89,7 @@ router.get("/v1/fr/concurrents", async (req, res) => {
 
 // ===== /fr/verif-artisan : vérifier un artisan avant de commander des travaux =====
 // Croise : santé entreprise + certification RGE + dirigeant lié à des faillites.
-router.get("/v1/fr/verif-artisan", async (req, res) => {
+router.all("/v1/fr/verif-artisan", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {
@@ -133,7 +133,7 @@ router.get("/v1/fr/verif-artisan", async (req, res) => {
 });
 
 // ===== /fr/valorisation : estimation de valeur d'entreprise (multiples) =====
-router.get("/v1/fr/valorisation", async (req, res) => {
+router.all("/v1/fr/valorisation", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {

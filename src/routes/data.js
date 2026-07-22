@@ -18,7 +18,7 @@ async function proxyJson(res, cacheKey, ttlMs, url, transform = (x) => x) {
 }
 
 // Entreprises françaises : recherche par nom ou SIREN/SIRET (source : recherche-entreprises.api.gouv.fr)
-router.get("/v1/fr/entreprise", (req, res) => {
+router.all("/v1/fr/entreprise", (req, res) => {
   const q = (req.query.q || "").toString().trim();
   if (!q) return res.status(400).json({ error: "missing_q" });
   proxyJson(
@@ -42,7 +42,7 @@ router.get("/v1/fr/entreprise", (req, res) => {
 });
 
 // Géocodage France + DOM (source : Base Adresse Nationale)
-router.get("/v1/fr/geocode", (req, res) => {
+router.all("/v1/fr/geocode", (req, res) => {
   const q = (req.query.q || "").toString().trim();
   if (!q) return res.status(400).json({ error: "missing_q" });
   proxyJson(
@@ -64,7 +64,7 @@ router.get("/v1/fr/geocode", (req, res) => {
 });
 
 // DNS complet d'un domaine
-router.get("/v1/dns", async (req, res) => {
+router.all("/v1/dns", async (req, res) => {
   const domain = (req.query.domain || "").toString().trim().toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain)) return res.status(400).json({ error: "invalid_domain" });
   const data = await cached(`dns:${domain}`, 3600_000, async () => {
@@ -80,7 +80,7 @@ router.get("/v1/dns", async (req, res) => {
 });
 
 // Validation email : syntaxe + existence du domaine + MX (aucun envoi)
-router.get("/v1/email/validate", async (req, res) => {
+router.all("/v1/email/validate", async (req, res) => {
   const email = (req.query.email || "").toString().trim().toLowerCase();
   const syntaxOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
   if (!syntaxOk) return res.json({ email, valid: false, reason: "syntax" });

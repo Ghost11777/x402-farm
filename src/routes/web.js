@@ -18,7 +18,7 @@ function getUrlParam(req) {
 async function handle(req, res, fn) {
   try {
     // Sur Vercel, déléguer au worker Mac mini (IP résidentielle) si configuré.
-    if (await tryWorker(req, res)) return;
+    if (await tryWorker(req, res, { fallbackStatuses: [404] })) return;
     const url = await assertPublicUrl(getUrlParam(req));
     await fn(url);
   } catch (e) {
@@ -27,7 +27,7 @@ async function handle(req, res, fn) {
 }
 
 // URL -> markdown propre (contenu principal, sans nav/pub)
-router.post("/v1/extract", (req, res) =>
+router.all("/v1/extract", (req, res) =>
   handle(req, res, async (url) => {
     const data = await cached(`extract:${url}`, 10 * 60_000, () =>
       withPage(url.href, async (page) => {
@@ -55,7 +55,7 @@ router.post("/v1/extract", (req, res) =>
 );
 
 // URL -> HTML complet après exécution du JS
-router.post("/v1/render", (req, res) =>
+router.all("/v1/render", (req, res) =>
   handle(req, res, async (url) => {
     const data = await cached(`render:${url}`, 10 * 60_000, () =>
       withPage(url.href, async (page) => ({ url: url.href, html: await page.content() }))
@@ -65,7 +65,7 @@ router.post("/v1/render", (req, res) =>
 );
 
 // URL -> capture PNG (binaire)
-router.post("/v1/screenshot", (req, res) =>
+router.all("/v1/screenshot", (req, res) =>
   handle(req, res, async (url) => {
     const fullPage = req.body?.fullPage === true;
     const buf = await withPage(url.href, (page) => page.screenshot({ fullPage, type: "png" }), { fullPage });
@@ -74,7 +74,7 @@ router.post("/v1/screenshot", (req, res) =>
 );
 
 // URL -> PDF (binaire)
-router.post("/v1/pdf", (req, res) =>
+router.all("/v1/pdf", (req, res) =>
   handle(req, res, async (url) => {
     const buf = await withPage(url.href, (page) => page.pdf({ format: "A4", printBackground: true }));
     res.type("application/pdf").send(buf);
@@ -82,7 +82,7 @@ router.post("/v1/pdf", (req, res) =>
 );
 
 // URL -> liens classés interne/externe avec ancres
-router.post("/v1/links", (req, res) =>
+router.all("/v1/links", (req, res) =>
   handle(req, res, async (url) => {
     const data = await cached(`links:${url}`, 10 * 60_000, () =>
       withPage(url.href, async (page) => {
@@ -105,7 +105,7 @@ router.post("/v1/links", (req, res) =>
 );
 
 // URL -> métadonnées SEO / OpenGraph / JSON-LD
-router.post("/v1/meta", (req, res) =>
+router.all("/v1/meta", (req, res) =>
   handle(req, res, async (url) => {
     const data = await cached(`meta:${url}`, 30 * 60_000, () =>
       withPage(url.href, async (page) =>

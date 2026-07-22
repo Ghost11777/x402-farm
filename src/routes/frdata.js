@@ -24,7 +24,7 @@ async function proxy(res, key, ttlMs, url, transform = (x) => x, opts = {}) {
 const q = (req, name) => (req.query[name] || "").toString().trim();
 
 // ---- 1. TVA intracommunautaire FR depuis un SIREN (calcul pur, clé = (12 + 3*(SIREN%97))%97) ----
-router.get("/v1/fr/tva", (req, res) => {
+router.all("/v1/fr/tva", (req, res) => {
   const siren = q(req, "siren").replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
   const key = (12 + 3 * (Number(siren) % 97)) % 97;
@@ -32,7 +32,7 @@ router.get("/v1/fr/tva", (req, res) => {
 });
 
 // ---- 2. Validation TVA UE via VIES (officiel Commission européenne) ----
-router.get("/v1/fr/vat-eu", (req, res) => {
+router.all("/v1/fr/vat-eu", (req, res) => {
   const raw = q(req, "vat").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const m = raw.match(/^([A-Z]{2})(.+)$/);
   if (!m) return res.status(400).json({ error: "invalid_vat_format" });
@@ -49,7 +49,7 @@ router.get("/v1/fr/vat-eu", (req, res) => {
 });
 
 // ---- 3. Info commune (population, CP, INSEE, département, région) ----
-router.get("/v1/fr/commune", (req, res) => {
+router.all("/v1/fr/commune", (req, res) => {
   const nom = q(req, "q");
   const cp = q(req, "cp");
   if (!nom && !cp) return res.status(400).json({ error: "missing_q_or_cp" });
@@ -68,7 +68,7 @@ router.get("/v1/fr/commune", (req, res) => {
 });
 
 // ---- 4. Géocodage inverse (lat/lon -> adresse) ----
-router.get("/v1/fr/reverse-geocode", (req, res) => {
+router.all("/v1/fr/reverse-geocode", (req, res) => {
   const lat = q(req, "lat"), lon = q(req, "lon");
   if (!lat || !lon) return res.status(400).json({ error: "missing_lat_lon" });
   proxy(res, `revgeo:${lat},${lon}`, 30 * 24 * 3600_000,
@@ -81,7 +81,7 @@ router.get("/v1/fr/reverse-geocode", (req, res) => {
 });
 
 // ---- 5. Jours fériés FR (par année + zone) ----
-router.get("/v1/fr/jours-feries", (req, res) => {
+router.all("/v1/fr/jours-feries", (req, res) => {
   const annee = q(req, "annee") || String(new Date().getFullYear?.() || 2026);
   const zone = q(req, "zone") || "metropole";
   proxy(res, `jf:${zone}:${annee}`, 90 * 24 * 3600_000,
@@ -90,7 +90,7 @@ router.get("/v1/fr/jours-feries", (req, res) => {
 });
 
 // ---- 6. Risques naturels/technologiques par code INSEE (GeoRisques) ----
-router.get("/v1/fr/georisques", (req, res) => {
+router.all("/v1/fr/georisques", (req, res) => {
   const insee = q(req, "insee");
   if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
   proxy(res, `georisq:${insee}`, 7 * 24 * 3600_000,
@@ -110,7 +110,7 @@ router.get("/v1/fr/georisques", (req, res) => {
 });
 
 // ---- 7. Prix carburants près d'une position ----
-router.get("/v1/fr/carburants", (req, res) => {
+router.all("/v1/fr/carburants", (req, res) => {
   const cp = q(req, "cp");
   if (!/^\d{5}$/.test(cp)) return res.status(400).json({ error: "invalid_cp" });
   proxy(res, `carbu:${cp}`, 3600_000,
@@ -126,7 +126,7 @@ router.get("/v1/fr/carburants", (req, res) => {
 });
 
 // ---- 8. Tous les établissements d'un SIREN ----
-router.get("/v1/fr/etablissements", (req, res) => {
+router.all("/v1/fr/etablissements", (req, res) => {
   const siren = q(req, "siren").replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
   proxy(res, `etabs:${siren}`, 24 * 3600_000,
@@ -143,7 +143,7 @@ router.get("/v1/fr/etablissements", (req, res) => {
 });
 
 // ---- 9. Recherche d'associations (RNA / recherche-entreprises) ----
-router.get("/v1/fr/association", (req, res) => {
+router.all("/v1/fr/association", (req, res) => {
   const query = q(req, "q");
   if (!query) return res.status(400).json({ error: "missing_q" });
   proxy(res, `asso:${query}`, 24 * 3600_000,
@@ -154,7 +154,7 @@ router.get("/v1/fr/association", (req, res) => {
 });
 
 // ---- 10. DPE (diagnostic performance énergétique) par commune (ADEME) ----
-router.get("/v1/fr/dpe", (req, res) => {
+router.all("/v1/fr/dpe", (req, res) => {
   const insee = q(req, "insee");
   const cp = q(req, "cp");
   if (!insee && !cp) return res.status(400).json({ error: "missing_insee_or_cp" });
@@ -168,7 +168,7 @@ router.get("/v1/fr/dpe", (req, res) => {
 });
 
 // ---- 11. Vacances scolaires (par zone/année) ----
-router.get("/v1/fr/vacances-scolaires", (req, res) => {
+router.all("/v1/fr/vacances-scolaires", (req, res) => {
   const zone = q(req, "zone") || "Zone A";
   const annee = q(req, "annee") || "2025-2026";
   proxy(res, `vac:${zone}:${annee}`, 30 * 24 * 3600_000,
@@ -178,7 +178,7 @@ router.get("/v1/fr/vacances-scolaires", (req, res) => {
 });
 
 // ---- 12. Établissements scolaires (annuaire éducation nationale) ----
-router.get("/v1/fr/ecoles", (req, res) => {
+router.all("/v1/fr/ecoles", (req, res) => {
   const query = q(req, "q");
   const cp = q(req, "cp");
   if (!query && !cp) return res.status(400).json({ error: "missing_q_or_cp" });
@@ -193,7 +193,7 @@ router.get("/v1/fr/ecoles", (req, res) => {
 });
 
 // ---- 13. Validation IBAN (mod-97, pur) ----
-router.get("/v1/fr/iban", (req, res) => {
+router.all("/v1/fr/iban", (req, res) => {
   const iban = q(req, "iban").toUpperCase().replace(/\s/g, "");
   if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) return res.json({ iban, valid: false, reason: "format" });
   const rearranged = iban.slice(4) + iban.slice(0, 4);
@@ -204,7 +204,7 @@ router.get("/v1/fr/iban", (req, res) => {
 });
 
 // ---- 14. Codes postaux <-> communes (IGN apicarto) ----
-router.get("/v1/fr/codes-postaux", (req, res) => {
+router.all("/v1/fr/codes-postaux", (req, res) => {
   const cp = q(req, "cp");
   if (!/^\d{5}$/.test(cp)) return res.status(400).json({ error: "invalid_cp" });
   proxy(res, `cp:${cp}`, 30 * 24 * 3600_000,
@@ -213,7 +213,7 @@ router.get("/v1/fr/codes-postaux", (req, res) => {
 });
 
 // ---- 15. Parcelle cadastrale par coordonnées (IGN) ----
-router.get("/v1/fr/cadastre", (req, res) => {
+router.all("/v1/fr/cadastre", (req, res) => {
   const lat = q(req, "lat"), lon = q(req, "lon");
   if (!lat || !lon) return res.status(400).json({ error: "missing_lat_lon" });
   const geom = JSON.stringify({ type: "Point", coordinates: [Number(lon), Number(lat)] });
@@ -227,7 +227,7 @@ router.get("/v1/fr/cadastre", (req, res) => {
 });
 
 // ---- 16. DVF : valeurs foncières (transactions immobilières réelles) ----
-router.get("/v1/fr/valeurs-foncieres", (req, res) => {
+router.all("/v1/fr/valeurs-foncieres", (req, res) => {
   const insee = q(req, "insee");
   if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
   const annee = q(req, "annee");
@@ -244,7 +244,7 @@ router.get("/v1/fr/valeurs-foncieres", (req, res) => {
 });
 
 // ---- 17. Statistiques INSEE d'une commune (population, superficie, densité) ----
-router.get("/v1/fr/insee-commune", (req, res) => {
+router.all("/v1/fr/insee-commune", (req, res) => {
   const insee = q(req, "insee");
   if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
   proxy(res, `insee:${insee}`, 30 * 24 * 3600_000,
@@ -269,7 +269,7 @@ const WMO = {
 };
 
 // ---- 18. Météo actuelle + prévisions (open-meteo, couvre France + DOM) ----
-router.get("/v1/fr/meteo", (req, res) => {
+router.all("/v1/fr/meteo", (req, res) => {
   const lat = q(req, "lat"), lon = q(req, "lon");
   if (!lat || !lon) return res.status(400).json({ error: "missing_lat_lon" });
   const jours = Math.min(Math.max(Number(q(req, "jours")) || 3, 1), 7);
@@ -290,7 +290,7 @@ router.get("/v1/fr/meteo", (req, res) => {
 });
 
 // ---- 19. Artisans RGE (rénovation énergétique certifiés) près d'un code postal ----
-router.get("/v1/fr/rge", (req, res) => {
+router.all("/v1/fr/rge", (req, res) => {
   const cp = q(req, "cp");
   if (!/^\d{5}$/.test(cp)) return res.status(400).json({ error: "invalid_cp" });
   const domaine = q(req, "domaine");
@@ -313,7 +313,7 @@ router.get("/v1/fr/rge", (req, res) => {
 });
 
 // ---- 20. Vérifier si une entreprise est certifiée RGE (par SIRET) ----
-router.get("/v1/fr/rge-check", (req, res) => {
+router.all("/v1/fr/rge-check", (req, res) => {
   const siret = q(req, "siret").replace(/\D/g, "");
   if (siret.length !== 14) return res.status(400).json({ error: "siret_must_be_14_digits" });
   proxy(res, `rgecheck:${siret}`, 7 * 24 * 3600_000,
@@ -328,7 +328,7 @@ router.get("/v1/fr/rge-check", (req, res) => {
 });
 
 // ---- 21. Jeux de données transport/mobilité pour un territoire (transport.data.gouv) ----
-router.get("/v1/fr/transport", (req, res) => {
+router.all("/v1/fr/transport", (req, res) => {
   const query = q(req, "q");
   if (!query) return res.status(400).json({ error: "missing_q" });
   proxy(res, `transport:${query}`, 24 * 3600_000,
@@ -347,7 +347,7 @@ router.get("/v1/fr/transport", (req, res) => {
 });
 
 // ---- 22. Bornes de recharge électrique (IRVE) par code INSEE ----
-router.get("/v1/fr/irve", (req, res) => {
+router.all("/v1/fr/irve", (req, res) => {
   const insee = q(req, "insee");
   if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
   proxy(res, `irve:${insee}`, 7 * 24 * 3600_000,
@@ -360,7 +360,7 @@ router.get("/v1/fr/irve", (req, res) => {
 });
 
 // ---- 23. Annonces légales BODACC d'une entreprise (par SIREN) ----
-router.get("/v1/fr/bodacc", (req, res) => {
+router.all("/v1/fr/bodacc", (req, res) => {
   const siren = q(req, "siren").replace(/\D/g, "");
   if (siren.length !== 9) return res.status(400).json({ error: "siren_must_be_9_digits" });
   const where = encodeURIComponent(`registre like "${siren}"`);
@@ -373,7 +373,7 @@ router.get("/v1/fr/bodacc", (req, res) => {
 });
 
 // ---- 24. Opérateurs bio certifiés (AB) par département + recherche ----
-router.get("/v1/fr/bio", (req, res) => {
+router.all("/v1/fr/bio", (req, res) => {
   const dep = q(req, "departement");
   const query = q(req, "q");
   if (!dep && !query) return res.status(400).json({ error: "missing_departement_or_q" });

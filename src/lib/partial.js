@@ -5,7 +5,7 @@
 // ⚠️ registerPartial DOIT être appelé AVANT la déclaration de la route complète
 // sur le même router (Express ne rematche que les layers suivants après next()).
 export function registerPartial(router, fullPath, pick) {
-  router.get(`${fullPath}/partial`, (req, res, next) => {
+  router.all(`${fullPath}/partial`, (req, res, next) => {
     const orig = res.json.bind(res);
     res.json = (data) => {
       if (!data || data.error || data.found === false) return orig(data);

@@ -66,7 +66,7 @@ registerPartial(router, "/v1/fr/kyb", (d) => ({
 // ===================== /fr/score-entreprise =====================
 // Score de solidité 0-100 croisant : finances (tendance CA/résultat INPI),
 // signaux légaux (BODACC : procédures collectives...), ancienneté, activité.
-router.get("/v1/fr/score-entreprise", async (req, res) => {
+router.all("/v1/fr/score-entreprise", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {
@@ -147,7 +147,7 @@ router.get("/v1/fr/score-entreprise", async (req, res) => {
 // ===================== /fr/analyse-immo =====================
 // Scorecard investissement d'une adresse : valeur estimée (DVF) + énergie (DPE)
 // + risques naturels (GéoRisques) + démographie commune (INSEE).
-router.get("/v1/fr/analyse-immo", async (req, res) => {
+router.all("/v1/fr/analyse-immo", async (req, res) => {
   const adresse = q(req, "adresse");
   const surface = Number(q(req, "surface")) || null;
   const typeBien = (q(req, "type") || "appartement").toLowerCase();
@@ -227,7 +227,7 @@ router.get("/v1/fr/analyse-immo", async (req, res) => {
 // Know Your Business : dossier de conformité fournisseur en un appel.
 // Croise : identité + TVA (calcul + validation VIES) + dirigeants + santé
 // financière (INPI bilans) + procédures légales (BODACC) + verdict.
-router.get("/v1/fr/kyb", async (req, res) => {
+router.all("/v1/fr/kyb", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {
@@ -290,7 +290,7 @@ const NAF_ALIAS = {
   pharmacie: "47.73Z", "fleuriste": "47.76Z", tabac: "47.26Z", "auto-école": "85.53Z",
   bar: "56.30Z", opticien: "47.78A", boucherie: "47.22Z", pizzeria: "56.10C",
 };
-router.get("/v1/fr/etude-implantation", async (req, res) => {
+router.all("/v1/fr/etude-implantation", async (req, res) => {
   const activite = q(req, "activite");
   const commune = q(req, "commune") || q(req, "insee");
   if (!activite || !commune) return res.status(400).json({ error: "missing_activite_or_commune" });

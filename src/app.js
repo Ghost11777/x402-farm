@@ -19,6 +19,7 @@ import ukRoutes from "./routes/uk.js";
 import usRoutes from "./routes/us.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import radarRoutes from "./routes/radar.js";
+import utilityRoutes from "./routes/utility.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -101,9 +102,18 @@ const ALTERNATIVES = (() => {
 
 // Prix par "METHOD /path" pour reconnaître un appel payant et son montant
 const PRICE_BY_ROUTE = Object.fromEntries(CATALOG.map((e) => [e.route, Number(e.price.replace("$", ""))]));
+const PRICE_BY_PATH = Object.fromEntries(CATALOG.map((e) => [e.route.split(" ")[1], Number(e.price.replace("$", ""))]));
 
 // Compteur en mémoire (fallback /stats) + logging persistant Supabase (fire-and-forget)
 const hits = {};
+// Les handlers lisent query (routes GET) ou body (routes POST) : on fusionne les
+// deux sens pour que la méthode ne soit jamais un mur.
+app.use("/v1", (req, _res, next) => {
+  if (req.method === "GET" && (!req.body || !Object.keys(req.body).length)) req.body = { ...req.query };
+  else if (req.method === "POST" && req.body) for (const [k, v] of Object.entries(req.body)) if (req.query[k] === undefined && (typeof v === "string" || typeof v === "number")) req.query[k] = String(v);
+  next();
+});
+
 const NOLOG = /^\/(dashboard|favicon|radar)/;
 app.use((req, res, next) => {
   if (NOLOG.test(req.path)) return next();
@@ -111,7 +121,7 @@ app.use((req, res, next) => {
   const routeKey = `${req.method} ${req.path}`;
   hits[routeKey] = (hits[routeKey] || 0) + 1;
   res.on("finish", () => {
-    const price = PRICE_BY_ROUTE[routeKey];
+    const price = PRICE_BY_ROUTE[routeKey] ?? PRICE_BY_PATH[req.path];
     const paid = price !== undefined && res.statusCode >= 200 && res.statusCode < 300;
     logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") });
   });
@@ -126,6 +136,11 @@ app.get("/", (_req, res) =>
       "The x402 farm for business & open data, agent-first. Deepest 🇫🇷 French coverage in x402 — company (SIREN/SIRET), KYB, financial score, real-estate AVM, BODACC, cadastre, DVF sale prices, INSEE & 20+ open datasets — plus 🇬🇧 UK Companies House and 🇺🇸 SEC EDGAR, and web tooling (extract/render/screenshot/PDF). Pay-per-call USDC, no account, no API key.",
     payment: PAY_TO ? { protocol: "x402", network: NETWORK, payTo: PAY_TO } : { mode: "FREE (no PAY_TO configured)" },
     discovery: { openapi: "/openapi.json", llms: "/llms.txt", mcp: "/mcp", well_known: "/.well-known/x402" },
+    quickstart: {
+      cheapest_probe: "GET /v1/weather?city=Paris — $0.003, any x402 client",
+      note: "All /v1 routes accept GET and POST. Each 402 includes cheaper alternatives when available.",
+      docs: "/llms.txt",
+    },
     endpoints: CATALOG,
   })
 );
@@ -190,15 +205,19 @@ if (PAY_TO) {
   const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
   let resourceServer = new x402ResourceServer(facilitatorClient);
   for (const n of NETWORKS) resourceServer = resourceServer.register(n, new ExactEvmScheme());
+  // Tolérance de méthode : les agents sondent en GET des routes POST (24 visiteurs/72 h
+  // sur extract/render/screenshot) et inversement. Chaque route /v1 est payable en GET ET POST.
   const routes = Object.fromEntries(
-    CATALOG.map((e) => [
-      e.route,
-      {
+    CATALOG.flatMap((e) => {
+      const val = {
         accepts: NETWORKS.map((n) => ({ scheme: "exact", price: e.price, network: n, payTo: PAY_TO })),
         description: e.desc,
         ...(e.bazaar ? { extensions: declareDiscoveryExtension({ ...e.bazaar, discoverable: true }) } : {}),
-      },
-    ])
+      };
+      const [method, path] = e.route.split(" ");
+      const other = method === "GET" ? "POST" : "GET";
+      return [[e.route, val], [`${other} ${path}`, val]];
+    })
   );
   app.use(paymentMiddleware(routes, resourceServer));
   console.log(`[x402] paywall ON — [${NETWORKS.join(", ")}] -> ${PAY_TO} via ${facilitatorConfig.url}`);
@@ -207,6 +226,7 @@ if (PAY_TO) {
 }
 
 app.use(webRoutes);
+app.use(utilityRoutes);
 app.use(dataRoutes);
 app.use(frdataRoutes);
 app.use(compositeRoutes);
