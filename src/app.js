@@ -164,6 +164,16 @@ app.get("/selftest", async (_req, res) => {
   }
 });
 app.get("/stats", (_req, res) => res.json({ hits, analytics: analyticsEnabled }));
+app.get("/debug/trial", (req, res) => {
+  if (req.query.token !== process.env.ADMIN_TOKEN) return res.status(401).json({ error: "unauthorized" });
+  res.json({
+    trialEligible: [...TRIAL_ELIGIBLE],
+    catalogLen: CATALOG.length,
+    supabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
+    xff: req.headers["x-forwarded-for"] || null,
+    reqIp: req.ip,
+  });
+});
 
 // Dashboard analytics (revenu/conversion par route) — protégé par ADMIN_TOKEN.
 // Utilise la clé service-role côté lecture (RLS bloque l'anon en SELECT).
