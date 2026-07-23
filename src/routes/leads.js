@@ -25,24 +25,45 @@ function overlap(a, b) {
   return n / Math.min(A.size, B.size);
 }
 
-async function matchRegistry(name, cp, city) {
+// Numéro de voie d'une adresse ("22 Rue des Carmes" -> "22").
+const streetNo = (s) => (String(s || "").match(/\b(\d{1,4})(?:\s?(?:bis|ter))?\b/) || [])[1] || null;
+// Comparaison d'adresses : même numéro de voie + ≥1 token de rue commun = signal fort.
+function addrMatch(a, b) {
+  const n1 = streetNo(a), n2 = streetNo(b);
+  if (!n1 || !n2 || n1 !== n2) return 0;
+  const t1 = new Set(tokens(a).filter((t) => !/^\d+$/.test(t)));
+  const t2 = new Set(tokens(b).filter((t) => !/^\d+$/.test(t)));
+  let common = 0;
+  for (const t of t1) if (t2.has(t)) common++;
+  return common >= 1 ? 1 : 0.55; // même n° + rue commune = quasi certain
+}
+
+async function fetchReg(q, cp) {
+  const url = `${REG}?q=${encodeURIComponent(q)}${cp ? `&code_postal=${cp}` : ""}&per_page=10&minimal=true&include=dirigeants,siege,finances`;
+  const r = await fetch(url, { headers: { "user-agent": "x402-farm" }, signal: AbortSignal.timeout(9000) });
+  return (await r.json()).results || [];
+}
+
+async function matchRegistry(name, cp, city, address) {
   const q = tokens(name).filter((t) => !STOP.has(t) && t !== norm(city)).join(" ") || name;
-  const url = `${REG}?q=${encodeURIComponent(q)}${cp ? `&code_postal=${cp}` : ""}&per_page=5&minimal=true&include=dirigeants,siege,finances`;
   try {
-    const r = await fetch(url, { headers: { "user-agent": "x402-farm" }, signal: AbortSignal.timeout(9000) });
-    const d = await r.json();
-    const results = d.results || [];
+    // 1er essai filtré par code postal ; repli sans filtre si vide (le CP du siège peut différer)
+    let results = await fetchReg(q, cp);
+    if (!results.length && cp) results = await fetchReg(q, null);
     if (!results.length) return null;
-    // meilleur match : recouvrement de nom, bonus même commune
-    let best = null, bestScore = 0;
+    // meilleur match : nom + ADRESSE (numéro+rue) + commune. L'adresse prime.
+    let best = null, bestScore = 0, bestAddr = 0;
     for (const c of results) {
       const nm = c.nom_complet || c.nom_raison_sociale || "";
-      let s = overlap(name, nm);
-      if (cp && c.siege?.code_postal === String(cp)) s += 0.25;
-      if (city && norm(c.siege?.commune || "").includes(norm(city))) s += 0.1;
-      if (s > bestScore) { bestScore = s; best = c; }
+      const nameS = overlap(name, nm);
+      const sameCp = cp && c.siege?.code_postal === String(cp);
+      const am = address ? addrMatch(address, c.siege?.adresse) : 0;
+      // score combiné : le match d'adresse vaut très cher (jusqu'à +0.6)
+      let s = nameS + am * 0.6 + (sameCp ? 0.15 : 0) + (city && norm(c.siege?.commune || "").includes(norm(city)) ? 0.1 : 0);
+      if (s > bestScore) { bestScore = s; best = c; bestAddr = am; }
     }
-    if (!best || bestScore < 0.34) return null; // pas assez sûr -> pas de faux match
+    // Accepter si : nom correct (≥0.34) OU adresse (numéro+rue) qui matche (même si nom marketing ≠ légal)
+    if (!best || (bestScore < 0.34 && bestAddr < 1)) return null;
     const fin = best.finances && Object.keys(best.finances).length
       ? (() => { const y = Object.keys(best.finances).sort().pop(); return { annee: y, ...best.finances[y] }; })()
       : null;
@@ -64,6 +85,7 @@ async function matchRegistry(name, cp, city) {
       hq: best.siege ? [best.siege.adresse, best.siege.code_postal, best.siege.commune].filter(Boolean).join(", ") : null,
       finances: fin,
       matchConfidence: Math.round(Math.min(bestScore, 1) * 100) / 100,
+      matchedBy: bestAddr >= 1 ? "address" : "name",
     };
   } catch { return null; }
 }
@@ -111,7 +133,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
 
   const leads = await mapLimit(businesses, 5, async (b) => {
     const cp = (String(b.address || "").match(/\b(\d{5})\b/) || [])[1] || null;
-    const company = await matchRegistry(b.name, cp, location);
+    const company = await matchRegistry(b.name, cp, location, b.address);
     const lead = {
       name: b.name,
       phone: b.phone || null,
