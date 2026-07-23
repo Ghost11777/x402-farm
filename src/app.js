@@ -128,7 +128,7 @@ app.use((req, res, next) => {
     // jamais déduit du seul statut 2xx (les HEAD passaient pour payés).
     const settled = !!(res.getHeader("payment-response") || res.getHeader("x-payment-response"));
     const paid = price !== undefined && settled && res.statusCode >= 200 && res.statusCode < 300;
-    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req.path.startsWith("/trial/") });
+    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req._freeTrial === true });
   });
   next();
 });
@@ -202,15 +202,10 @@ app.use(async (req, res, next) => {
   if (hasPayment) return next(); // il paie : ne pas gaspiller son quota gratuit
   if (await grantFreeCall(req)) {
     res.set("x-free-trial", "1 free call per client per day (data, search, LLM <= $0.01) - this one was on us");
-    req.url = "/trial" + req.url;
+    req._freeTrial = true; // fait sauter le paywall ci-dessous, la route sert la donnée normalement
   }
   next();
 });
-
-// Routes /trial montées AVANT le paywall : quand le middleware ci-dessus réécrit vers
-// /trial/…, elles servent la donnée et court-circuitent le paywall (qui, lui, matche
-// sur l'URL d'origine et re-facturerait sinon).
-for (const r of [utilityRoutes, dataRoutes, frdataRoutes, compositeRoutes, bodaccRoutes, scoringRoutes, intelRoutes, ukRoutes, usRoutes]) app.use("/trial", r);
 
 if (PAY_TO) {
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
@@ -243,7 +238,8 @@ if (PAY_TO) {
       return [[e.route, val], [`${other} ${path}`, val]];
     })
   );
-  app.use(paymentMiddleware(routes, resourceServer));
+  const pm = paymentMiddleware(routes, resourceServer);
+  app.use((req, res, next) => (req._freeTrial ? next() : pm(req, res, next)));
   console.log(`[x402] paywall ON — [${NETWORKS.join(", ")}] -> ${PAY_TO} via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
