@@ -137,6 +137,12 @@ CATALOG.push({
   bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, enriched: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", address: "12 Rue Sainte-Catherine, 33000 Bordeaux", phone: "06 48 56 65 03", website: "https://…", bookingUrl: null, placeId: "ChIJ…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
 });
 
+CATALOG.push({
+  route: "GET /v1/fr/enrich", price: "$0.08",
+  desc: "Enrich a French company (Clearbit/Apollo for France): input a SIREN or a name (+city) -> full sales dossier = legal identity, directors, financials, INSOLVENCY risk (BODACC), plus CONTACT (phone, website, rating) found via residential Google Maps. Registry + legal announcements + Maps in one call. Query: ?siren= or ?name=&city=",
+  bazaar: { method: "GET", input: { name: "Decathlon", city: "Lille" }, output: { example: { company: { siren: "306138900", legalName: "DECATHLON", dirigeants: [{ nom: "...", qualite: "President" }] }, risk: { hasInsolvencyHistory: false }, contact: { phone: "03...", website: "https://..." } } } },
+});
+
 // LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
 // (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
 // registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
