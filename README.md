@@ -1,6 +1,6 @@
 # x402-farm
 
-**61 pay-per-call APIs that AI agents pay for autonomously** — via the [x402 protocol](https://github.com/coinbase/x402) (USDC on Base). No account, no API key, no subscription: the agent gets an HTTP `402`, signs a micro-payment, retries, gets the data. Settlement is on-chain, per call, from $0.003.
+**64 pay-per-call APIs that AI agents pay for autonomously** — via the [x402 protocol](https://github.com/coinbase/x402) (USDC on Base). No account, no API key, no subscription: the agent gets an HTTP `402`, signs a micro-payment, retries, gets the data. Settlement is on-chain, per call, from $0.002.
 
 **Live at [api.x-402.online](https://api.x-402.online)** · MCP: `online.x-402/mcp` on the [official registry](https://registry.modelcontextprotocol.io/v0/servers?search=x-402) and [Smithery](https://smithery.ai/servers/laurenthalbrun/x402-farm)
 
@@ -23,7 +23,7 @@ import { privateKeyToAccount } from "viem/accounts";
 const f = wrapFetchWithPaymentFromConfig(fetch, {
   schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(privateKeyToAccount(PRIVATE_KEY)) }],
 });
-const r = await f("https://api.x-402.online/v1/search?q=x402"); // $0.005, settled on-chain
+const r = await f("https://api.x-402.online/v1/search?q=x402"); // $0.003, settled on-chain
 console.log(await r.json());
 ```
 
@@ -31,9 +31,10 @@ console.log(await r.json());
 
 | Category | Routes | From |
 |---|---|---|
-| 🔎 **Web search** | Google results (organic + answer box + knowledge graph) | $0.005 |
+| 🤖 **LLM inference** | prompt in, completion out (DeepSeek v4) — among the cheapest $/call on x402 | $0.002 |
+| 🔎 **Web + news search** | real Google results (organic + answer box + knowledge graph) & fresh news | $0.003 |
+| 🕸️ **Residential-IP scraping** | extract, render (JS), screenshot, PDF, links, meta — through a **French residential IP**, reaches sites that block datacenters | $0.005 |
 | 🌍 **Utilities** | weather (worldwide), crypto prices, DNS, email validation, IBAN | $0.003 |
-| 🕸️ **Web tooling** | extract, render (JS), screenshot, PDF, links, meta — served from a **residential IP** | $0.01 |
 | 🇫🇷 **French business data** (deepest x402 coverage) | company identity (SIREN/SIRET), **annual accounts (INPI)**, **insolvency (BODACC)**, KYB + VIES VAT, credit-style score, director networks, competitors | $0.003–0.12 |
 | 🏠 **French real estate** | DVF sale-price valuations, DPE energy, risks, investment scorecard | $0.02–0.08 |
 | 🇬🇧🇺🇸 **UK / US** | Companies House, SEC EDGAR filings & financials | $0.005–0.08 |
@@ -45,7 +46,7 @@ Full machine-readable docs: [`/llms.txt`](https://api.x-402.online/llms.txt) · 
 
 - **Every route accepts GET and POST** (query params or JSON body — your call)
 - **Progressive pricing**: big composites have a `/partial` LITE version from $0.02; every `402` response advertises the cheaper alternative and free trial in an `alternatives` field
-- **MCP server** at [`/mcp`](https://api.x-402.online/mcp) (JSON-RPC, Streamable HTTP): 61 tools, x402 payment relayed end-to-end — proven on-chain
+- **MCP server** at [`/mcp`](https://api.x-402.online/mcp) (JSON-RPC, Streamable HTTP): 64 tools, x402 payment relayed end-to-end — proven on-chain
 - **Multi-surface discovery**: Bazaar extensions, `llms.txt`, OpenAPI, agent-skills, `Link` headers
 
 ## Architecture

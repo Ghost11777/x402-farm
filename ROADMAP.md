@@ -84,5 +84,5 @@ fournies (Laurent) : /v1/search (SERPER_API_KEY, ~2 min à créer) + /v1/llm (OP
 
 ## Ce qu'on ne fait PAS (décidé)
 
-- Recherche web générique (marché pris, hors moat), LinkedIn (ban), volume d'APIs à l'aveugle,
-  wash trading (délistage Bazaar), musique/média hors moat.
+- LinkedIn (risque ban), volume d'APIs à l'aveugle, wash trading (délistage Bazaar), musique/média hors moat.
+  (NB : search + LLM AJOUTÉS le 23/07 — décision "doubler sur les catégories qui vendent", ce ne sont plus des exclusions.)
