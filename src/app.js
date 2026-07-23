@@ -108,7 +108,8 @@ const PRICE_BY_PATH = Object.fromEntries(CATALOG.map((e) => [e.route.split(" ")[
 const hits = {};
 // Les handlers lisent query (routes GET) ou body (routes POST) : on fusionne les
 // deux sens pour que la méthode ne soit jamais un mur.
-app.use("/v1", (req, _res, next) => {
+app.use("/v1", (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "POST") return res.status(405).json({ error: "method_not_allowed", allowed: ["GET", "POST"] });
   if (req.method === "GET" && (!req.body || !Object.keys(req.body).length)) req.body = { ...req.query };
   else if (req.method === "POST" && req.body) for (const [k, v] of Object.entries(req.body)) if (req.query[k] === undefined && (typeof v === "string" || typeof v === "number")) req.query[k] = String(v);
   next();
@@ -122,7 +123,10 @@ app.use((req, res, next) => {
   hits[routeKey] = (hits[routeKey] || 0) + 1;
   res.on("finish", () => {
     const price = PRICE_BY_ROUTE[routeKey] ?? PRICE_BY_PATH[req.path];
-    const paid = price !== undefined && res.statusCode >= 200 && res.statusCode < 300;
+    // "payé" = le facilitateur a posé l'en-tête de règlement (preuve on-chain),
+    // jamais déduit du seul statut 2xx (les HEAD passaient pour payés).
+    const settled = !!(res.getHeader("payment-response") || res.getHeader("x-payment-response"));
+    const paid = price !== undefined && settled && res.statusCode >= 200 && res.statusCode < 300;
     logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") });
   });
   next();
