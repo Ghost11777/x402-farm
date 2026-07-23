@@ -18,7 +18,7 @@ function getUrlParam(req) {
 async function handle(req, res, fn) {
   try {
     // Sur Vercel, déléguer au worker Mac mini (IP résidentielle) si configuré.
-    if (await tryWorker(req, res, { fallbackStatuses: [404] })) return;
+    if (await tryWorker(req, res, { forcePost: true })) return;
     const url = await assertPublicUrl(getUrlParam(req));
     await fn(url);
   } catch (e) {

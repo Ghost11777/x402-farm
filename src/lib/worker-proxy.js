@@ -11,13 +11,21 @@ export const usesWorker = !!WORKER_URL;
 export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
   try {
-    const upstream = await fetch(`${WORKER_URL}${req.originalUrl}`, {
-      method: req.method,
+    // forcePost : les routes navigateur DOIVENT être servies par le mini (IP résidentielle).
+    // On envoie toujours en POST avec les params fusionnés, pour que le worker réponde
+    // quelle que soit la méthode entrante (un GET ne doit pas retomber en datacenter).
+    const params = { ...req.query, ...(req.body || {}) };
+    const method = opts.forcePost ? "POST" : req.method;
+    const sendBody = method === "POST";
+    // Sur forcePost, cibler le chemin sans query (les params passent dans le body)
+    const target = opts.forcePost ? `${WORKER_URL}${req.path}` : `${WORKER_URL}${req.originalUrl}`;
+    const upstream = await fetch(target, {
+      method,
       headers: {
         "content-type": "application/json",
         "x-worker-secret": WORKER_SECRET,
       },
-      body: req.method === "POST" ? JSON.stringify(req.body || {}) : undefined,
+      body: sendBody ? JSON.stringify(sendBody ? params : req.body || {}) : undefined,
       signal: AbortSignal.timeout(45_000),
     });
     if (opts.fallbackStatuses?.includes(upstream.status)) {
