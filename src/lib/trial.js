@@ -11,7 +11,9 @@ const hashIp = (ip) => (ip ? createHash("sha256").update(ip + "x402farm").digest
 let globalCount = { day: "", n: 0 }; // approximation par instance, le vrai garde-fou est la pk
 
 export function buildTrialEligible(catalog) {
-  const EXCLUDED = new Set(["/v1/extract", "/v1/render", "/v1/screenshot", "/v1/pdf", "/v1/links", "/v1/meta", "/v1/llm", "/v1/search"]);
+  // Exclus : routes navigateur (compute lourd + worker mini). search/llm sont INCLUS
+  // — produits d'appel : coût amont ~$0.0002/appel, plafonné par le cap global quotidien.
+  const EXCLUDED = new Set(["/v1/extract", "/v1/render", "/v1/screenshot", "/v1/pdf", "/v1/links", "/v1/meta"]);
   const set = new Set();
   for (const e of catalog) {
     const [, path] = e.route.split(" ");

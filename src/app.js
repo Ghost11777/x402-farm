@@ -201,7 +201,7 @@ app.use(async (req, res, next) => {
   const hasPayment = req.get("payment-signature") || req.get("x-payment");
   if (hasPayment) return next(); // il paie : ne pas gaspiller son quota gratuit
   if (await grantFreeCall(req)) {
-    res.set("x-free-trial", "1 free call per client per day on data routes <= $0.01 - this one was on us");
+    res.set("x-free-trial", "1 free call per client per day (data, search, LLM <= $0.01) - this one was on us");
     req.url = "/trial" + req.url;
   }
   next();
