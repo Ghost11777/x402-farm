@@ -128,11 +128,13 @@ export const CATALOG = [
 ];
 
 // Google Maps local business scraper — via IP résidentielle FR (Google bloque les datacenters).
-// Un appel = une recherche activité+lieu -> jusqu'à 120 fiches (nom, note, avis, catégorie, tél, site).
+// Un appel = une recherche activité+lieu -> jusqu'à 120 fiches. Attention : le feed Maps
+// ne porte ni téléphone, ni site, ni nombre d'avis ; ces champs viennent d'une 2e passe
+// (une navigation par fiche) plafonnée par detailsMax -> d'où le champ `enriched`.
 CATALOG.push({
   route: "GET /v1/maps", price: "$0.03",
-  desc: "Google Maps local business scraper via a FRENCH RESIDENTIAL IP (Google blocks datacenter IPs). One call = one activity+location search -> up to 120 businesses with name, rating, reviews, category, phone, website, Maps URL. Query: ?q=<activity>&location=<city>&max=",
-  bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", phone: "06 48 56 65 03", website: "https://…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
+  desc: "Google Maps local business scraper via a FRENCH RESIDENTIAL IP (Google blocks datacenter IPs). One call = one activity+location search -> up to 120 businesses with name, rating, category, address, Maps URL. The first `detailsMax` results (default 25, max 60) are also enriched with phone, website and review count; beyond that these three fields are null. Query: ?q=<activity>&location=<city>&max=&detailsMax=&details=false (feed only, faster)",
+  bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, enriched: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", address: "12 Rue Sainte-Catherine, 33000 Bordeaux", phone: "06 48 56 65 03", website: "https://…", bookingUrl: null, placeId: "ChIJ…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
 });
 
 // Routes à clé amont : n'apparaissent (catalogue + paywall + MCP) que si la clé est configurée.
