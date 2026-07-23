@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "online.x-402/mcp",
   "title": "x402-farm",
-  "description": "62 pay-per-call tools via x402 (USDC): LLM, web search, weather, crypto, FR/UK/US company data.",
-  "version": "1.0.5",
+  "description": "64 tools via x402 (USDC): cheap LLM $0.002, web+news search, residential scraping, FR/UK/US data.",
+  "version": "1.0.6",
   "websiteUrl": "https://api.x-402.online",
   "remotes": [
     {
