@@ -24,6 +24,21 @@ export async function renderViaWorker(url, { waitFor } = {}) {
   return { html: j.html || "", servedBy: upstream.headers.get("x-served-by") || null };
 }
 
+// Récupère le contenu propre (markdown) d'une page via le mini résidentiel.
+// Sert l'extraction structurée : on donne le markdown au LLM plutôt que le HTML brut.
+export async function extractViaWorker(url) {
+  if (!WORKER_URL) throw new Error("no_worker");
+  const upstream = await fetch(`${WORKER_URL}/v1/extract`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-worker-secret": WORKER_SECRET },
+    body: JSON.stringify({ url }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!upstream.ok) throw new Error(`worker_extract_${upstream.status}`);
+  const j = await upstream.json();
+  return { markdown: j.markdown || "", title: j.title || null, servedBy: upstream.headers.get("x-served-by") || null };
+}
+
 export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
   try {

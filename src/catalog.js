@@ -170,6 +170,11 @@ if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) {
     bazaar: { bodyType: "json", method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
   });
   CATALOG.push({
+    route: "GET /v1/extract-structured", price: "$0.015",
+    desc: "URL + wanted fields -> clean JSON. Scrapes the page from a French residential IP (reaches sites that block datacenters) and uses an LLM to return exactly the fields you ask for. The 'scrape into this shape' call agents love (Firecrawl-extract territory), cheaper. Query: ?url=&fields=price,rating,stock (or ?schema=free-text)",
+    bazaar: { method: "GET", input: { url: "https://example.com", fields: "title,price" }, output: { example: { url: "https://…", data: { title: "…", price: 19.9 } } } },
+  });
+  CATALOG.push({
     route: "POST /v1/llm/pro", price: "$0.006",
     desc: "Smart LLM inference (DeepSeek v4 Pro): stronger reasoning for hard prompts, up to 2000 output tokens, no account. Body: {prompt, system?, max_tokens?}",
     bazaar: { bodyType: "json", method: "POST", input: { prompt: "Explain the tradeoffs of x402 vs API keys" }, output: { example: { output: "…", usage: { output_tokens: 300 } } } },
