@@ -137,6 +137,19 @@ CATALOG.push({
   bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, enriched: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", address: "12 Rue Sainte-Catherine, 33000 Bordeaux", phone: "06 48 56 65 03", website: "https://…", bookingUrl: null, placeId: "ChIJ…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
 });
 
+// Amazon product & search via IP résidentielle + navigateur furtif (Amazon fingerprinte les bots datacenter).
+CATALOG.push({
+  route: "GET /v1/amazon", price: "$0.02",
+  desc: "Amazon product & search scraper via a residential IP + stealth browser (bypasses Amazon bot detection). Product mode (?asin= or ?url=) -> title, price, rating, reviews, brand, image. Search mode (?q=) -> up to 60 products with price/rating. Great for price monitoring & competitive intel.",
+  bazaar: { method: "GET", input: { asin: "B09XS7JWHH" }, output: { example: { source: "amazon.fr", mode: "product", product: { title: "Sony WH-1000XM5", price: "€204.92", priceValue: 204.92, rating: 4.3, reviews: 12614 } } } },
+});
+// Immobilier FR (annonces / prix affichés) via Bien'ici — source protégée anti-bot (datacenters bloqués).
+CATALOG.push({
+  route: "GET /v1/fr/immo", price: "$0.03",
+  desc: "French real-estate listings (asking prices) from Bien'ici via a residential IP (datacenter IPs are blocked). One call = one city search -> listings with type, rooms, surface, price, €/m², postal code, URL + a median asking €/m². Pairs with /v1/fr/estimation-immo (DVF sold prices) to compare asking vs sold. Query: ?city=&cp=&type=achat|location",
+  bazaar: { method: "GET", input: { city: "Bordeaux", cp: "33000" }, output: { example: { source: "bienici.com", count: 25, summary: { medianAskingPricePerM2: 4602 }, listings: [{ type: "Appartement", rooms: 4, surface: 132, price: 635000, pricePerM2: 4602, postalCode: "33100" }] } } },
+});
+
 // Routes à clé amont : n'apparaissent (catalogue + paywall + MCP) que si la clé est configurée.
 if (process.env.SERPER_API_KEY) {
   CATALOG.push({

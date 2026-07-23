@@ -19,6 +19,8 @@ try {
 const { default: webRoutes } = await import("../src/routes/web.js");
 const { default: inpiRoutes } = await import("../src/routes/inpi.js");
 const { default: mapsRoutes } = await import("../src/routes/maps.js");
+const { default: amazonRoutes } = await import("../src/routes/amazon.js");
+const { default: immoRoutes } = await import("../src/routes/immo.js");
 
 const PORT = Number(process.env.WORKER_PORT || 4020);
 const SECRET = process.env.WORKER_SECRET || "";
@@ -46,6 +48,9 @@ app.use((_req, res, next) => { res.set("x-served-by", "macmini-worker"); next();
 app.use(webRoutes);
 // Google Maps : scrape local via l'IP résidentielle (Google bloque les datacenters)
 app.use(mapsRoutes);
+// Amazon + immo (Bien'ici) : navigateur furtif anti-anti-bot sur l'IP résidentielle
+app.use(amazonRoutes);
+app.use(immoRoutes);
 // INPI RNE : appelé depuis l'IP résidentielle (l'INPI tolère mal les IP datacenter)
 app.use(inpiRoutes);
 

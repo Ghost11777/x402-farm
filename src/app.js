@@ -21,6 +21,8 @@ import dashboardRoutes from "./routes/dashboard.js";
 import radarRoutes from "./routes/radar.js";
 import utilityRoutes from "./routes/utility.js";
 import mapsRoutes from "./routes/maps.js";
+import amazonRoutes from "./routes/amazon.js";
+import immoRoutes from "./routes/immo.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -269,6 +271,8 @@ if (PAY_TO) {
 
 app.use(webRoutes);
 app.use(mapsRoutes);
+app.use(amazonRoutes);
+app.use(immoRoutes);
 app.use(utilityRoutes);
 app.use(dataRoutes);
 app.use(frdataRoutes);
