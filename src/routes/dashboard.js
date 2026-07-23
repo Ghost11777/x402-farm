@@ -207,7 +207,7 @@ router.get("/dashboard/manifest.webmanifest", (_req, res) =>
 // (un SW servi sous /dashboard/ ne couvrirait PAS /dashboard sans slash final).
 router.get("/dashboard-sw.js", (_req, res) =>
   res.type("application/javascript").set("cache-control", "no-cache").send(`
-const V = "x402-ctrl-v2";
+const V = "x402-ctrl-v4";
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(
   caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k))))
@@ -401,6 +401,9 @@ footer a{color:var(--blue);text-decoration:none}
   <div class="kpi"><div class="lbl">Paywalls (jour)</div><div class="v num" id="v-402">—</div><div class="s">402 servis</div></div>
   <div class="kpi"><div class="lbl">Conversion</div><div class="v num" id="v-conv">—</div><div class="s">402 → paiement</div></div>
   <div class="kpi"><div class="lbl">Latence p50 / p95</div><div class="v num" id="v-lat" style="font-size:19px">—</div><div class="s" id="s-lat">24 h</div></div>
+  <div class="kpi" id="k-apusers" style="border-color:#a970ff44"><div class="lbl">💳 Apify · users 30j</div><div class="v num" id="v-apusers">—</div><div class="s" id="s-apusers">intérêt réel</div></div>
+  <div class="kpi" id="k-apruns"><div class="lbl">💳 Apify · runs</div><div class="v num" id="v-apruns">—</div><div class="s" id="s-apruns">cumulés</div></div>
+  <div class="kpi" id="k-apactors"><div class="lbl">💳 Apify · actors</div><div class="v num" id="v-apactors">—</div><div class="s" id="s-apactors">publiés · fiat 80%</div></div>
 </div>
 
 <div class="main">
@@ -806,7 +809,13 @@ function refresh(){
       renderRoutes(d.routes);
       renderPayers(d.payers);
       renderRadar(d.radar || []);
-      renderChannels(d.channels && d.channels.apify);
+      var apify = d.channels && d.channels.apify;
+      var at = apify && apify.totals;
+      countUp($("v-apusers"), at ? at.users30 : 0);
+      countUp($("v-apruns"), at ? at.runs : 0);
+      $("v-apactors").textContent = at ? at.published : "—";
+      if (at) $("s-apactors").textContent = at.priced + " tarifés · fiat 80%";
+      renderChannels(apify);
 
       $("f-wallet").textContent = d.payTo || "—";
       if (d.payTo) $("f-scan").href = "https://basescan.org/address/" + d.payTo;
