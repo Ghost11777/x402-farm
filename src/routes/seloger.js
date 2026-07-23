@@ -65,7 +65,9 @@ router.all("/v1/fr/seloger", async (req, res) => {
   if (!code) return res.status(404).json({ error: "city_not_resolved", hint: "unknown city — try adding ?cp=" });
 
   const projects = type === "location" ? "1" : "2";
-  const target = `https://www.seloger.com/list.htm?projects=${projects}&types=1,2&places=[{"inseeCodes":[${code}]}]&mandatorycommodities=0&enterprise=0&qsVersion=1.0`;
+  // SeLoger zéro-pad la partie commune du code INSEE à 4 chiffres : 33063 -> 33 + 0063 = 330063
+  const slCode = /^\d{5}$/.test(String(code)) ? String(code).slice(0, 2) + String(code).slice(2).padStart(4, "0") : String(code);
+  const target = `https://www.seloger.com/list.htm?projects=${projects}&types=1,2&places=[{"inseeCodes":[${slCode}]}]&mandatorycommodities=0&enterprise=0&qsVersion=1.0`;
   const zr = `https://api.zenrows.com/v1/?apikey=${ZKEY}&url=${encodeURIComponent(target)}&js_render=true&antibot=true&premium_proxy=true&proxy_country=fr`;
   try {
     const r = await fetch(zr, { signal: AbortSignal.timeout(75000) });
