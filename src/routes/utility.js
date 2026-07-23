@@ -68,24 +68,32 @@ if (process.env.SERPER_API_KEY) {
   });
 }
 
-// ===== /v1/llm : inférence LLM pay-per-call (activée par OPENAI_API_KEY) =====
-if (process.env.OPENAI_API_KEY) {
+// ===== /v1/llm : inférence LLM pay-per-call (endpoint OpenAI-compatible) =====
+// Provider configurable : LLM_API_KEY + LLM_BASE_URL (défaut DeepSeek) + LLM_MODEL.
+// Rétro-compat : OPENAI_API_KEY active OpenAI si LLM_API_KEY absent.
+const LLM_KEY = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
+const LLM_BASE = process.env.LLM_BASE_URL || (process.env.LLM_API_KEY ? "https://api.deepseek.com" : "https://api.openai.com");
+const LLM_MODEL = process.env.LLM_MODEL || (process.env.LLM_API_KEY ? "deepseek-chat" : "gpt-5-mini");
+if (LLM_KEY) {
   router.all("/v1/llm", async (req, res) => {
     const prompt = (req.body?.prompt || q(req, "prompt") || "").toString().slice(0, 8000);
     if (!prompt) return res.status(400).json({ error: "missing_prompt" });
     const system = (req.body?.system || q(req, "system") || "").toString().slice(0, 2000);
     const maxTokens = Math.min(Number(req.body?.max_tokens || q(req, "max_tokens")) || 1000, 2000);
     try {
-      const d = await getJson("https://api.openai.com/v1/chat/completions", {
+      const d = await getJson(`${LLM_BASE}/chat/completions`, {
         method: "POST",
-        headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "content-type": "application/json" },
+        headers: { authorization: `Bearer ${LLM_KEY}`, "content-type": "application/json" },
         body: JSON.stringify({
-          model: process.env.LLM_MODEL || "gpt-5-mini",
+          model: LLM_MODEL,
           messages: [...(system ? [{ role: "system", content: system }] : []), { role: "user", content: prompt }],
-          max_completion_tokens: maxTokens,
+          max_tokens: maxTokens,
         }),
       }, 60_000);
-      res.json({ output: d.choices?.[0]?.message?.content ?? null, model: d.model,
+      const output = d.choices?.[0]?.message?.content ?? null;
+      // Ne jamais renvoyer 200 sans contenu : le paywall a déjà réglé, on doit livrer.
+      if (!output) return res.status(502).json({ error: "llm_empty_response" });
+      res.json({ output, model: d.model,
         usage: d.usage ? { input_tokens: d.usage.prompt_tokens, output_tokens: d.usage.completion_tokens } : null });
     } catch (e) { res.status(e.status || 502).json({ error: e.message || "llm_failed" }); }
   });

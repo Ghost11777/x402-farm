@@ -133,8 +133,8 @@ if (process.env.SERPER_API_KEY) CATALOG.push({
   desc: "Web search (Google results via Serper): top 10 organic results + answer box + knowledge graph. Query: ?q=&gl=&hl=",
   bazaar: { method: "GET", input: { q: "x402 protocol" }, output: { example: { results: [{ title: "x402", url: "https://x402.org", snippet: "…" }] } } },
 });
-if (process.env.OPENAI_API_KEY) CATALOG.push({
+if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) CATALOG.push({
   route: "POST /v1/llm", price: "$0.01",
   desc: "LLM inference pay-per-call, no account: prompt in, completion out (fast frontier-lab mini model, up to 2000 output tokens). Body: {prompt, system?, max_tokens?}",
-  bazaar: { method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
+  bazaar: { bodyType: "json", method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
 });
