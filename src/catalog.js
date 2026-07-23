@@ -149,6 +149,12 @@ CATALOG.push({
   bazaar: { method: "GET", input: { text: "iphone", city: "Bordeaux" }, output: { example: { source: "leboncoin.fr", total: 1240, count: 20, ads: [{ id: "2812345678", title: "iPhone 13", price: 420, city: "Bordeaux", url: "https://www.leboncoin.fr/ad/..." }] } } },
 });
 
+CATALOG.push({
+  route: "GET /v1/fr/seloger", price: "$0.03",
+  desc: "SeLoger real-estate listings (DataDome-protected, unreachable from datacenters). Search a city (buy/rent) -> listings with type, rooms, surface, price, price per m2, URL + median asking price/m2. Pairs with DVF sold prices. Query: ?city=&cp=&type=achat|location&max=",
+  bazaar: { method: "GET", input: { city: "Bordeaux", cp: "33000" }, output: { example: { source: "seloger.com", count: 25, summary: { medianAskingPricePerM2: 5200 }, listings: [{ type: "Appartement", rooms: 4, surface: 132, price: 1370000, pricePerM2: 8422 }] } } },
+});
+
 // LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
 // (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
 // registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
