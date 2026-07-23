@@ -13,3 +13,4 @@ worker/.env
 .mcp-registry-key.pem
 .cloudflare.token
 .tunnel-connector.token
+.serper.secret

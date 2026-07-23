@@ -1,73 +1,61 @@
 # x402-farm
 
-**10 pay-per-call APIs that AI agents pay for autonomously** — via the [x402 protocol](https://github.com/coinbase/x402) (USDC on Base). No account, no API key, no subscription: the agent gets an HTTP `402`, signs a micro-payment, retries. Live at **https://x402-farm.vercel.app**.
+**61 pay-per-call APIs that AI agents pay for autonomously** — via the [x402 protocol](https://github.com/coinbase/x402) (USDC on Base). No account, no API key, no subscription: the agent gets an HTTP `402`, signs a micro-payment, retries, gets the data. Settlement is on-chain, per call, from $0.003.
 
-Also ships an **MCP server** so Claude / Cursor / any MCP client can use these as paid tools.
+**Live at [api.x-402.online](https://api.x-402.online)** · MCP: `online.x-402/mcp` on the [official registry](https://registry.modelcontextprotocol.io/v0/servers?search=x-402) and [Smithery](https://smithery.ai/servers/laurenthalbrun/x402-farm)
 
-## The 10 APIs
+## Try it in 60 seconds
 
-| Route | Price | What it does |
-|---|---|---|
-| `POST /v1/extract` | $0.005 | URL → main content as clean markdown (JS-rendered, real browser) |
-| `POST /v1/render` | $0.005 | URL → full HTML after JavaScript execution |
-| `POST /v1/screenshot` | $0.01 | URL → PNG (optional `fullPage`) |
-| `POST /v1/pdf` | $0.01 | URL → A4 PDF |
-| `POST /v1/links` | $0.005 | URL → deduplicated links, internal/external + anchor text |
-| `POST /v1/meta` | $0.005 | URL → SEO meta, OpenGraph, canonical, JSON-LD |
-| `GET /v1/fr/entreprise?q=` | $0.02 | French company lookup by name or SIREN/SIRET: officers, NAF, HQ, status |
-| `GET /v1/fr/geocode?q=` | $0.005 | Geocode any French address incl. overseas territories |
-| `GET /v1/dns?domain=` | $0.005 | Full DNS records: A, AAAA, MX, TXT, NS, SPF |
-| `GET /v1/email/validate?email=` | $0.005 | Email validation: syntax + MX (no email sent) |
+**Free taste, no wallet** — every client gets **1 free call per day** on any data route ≤ $0.01. Just call:
 
-**Free (no payment):** `GET /` (JSON catalog) · `/llms.txt` · `/openapi.json` · `POST /free/extract` · `GET /free/entreprise` (truncated previews).
+```bash
+curl "https://api.x-402.online/v1/weather?city=Tokyo"
+curl "https://api.x-402.online/v1/crypto/price?ids=bitcoin,ethereum&vs=usd"
+```
 
-## Pay from an agent
+**Paid, with any x402 client** (funded USDC wallet on Base):
 
 ```js
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm";
 import { privateKeyToAccount } from "viem/accounts";
 
-const pay = wrapFetchWithPaymentFromConfig(fetch, {
-  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(privateKeyToAccount(PK)) }],
+const f = wrapFetchWithPaymentFromConfig(fetch, {
+  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(privateKeyToAccount(PRIVATE_KEY)) }],
 });
-const r = await pay("https://x402-farm.vercel.app/v1/dns?domain=example.com");
-console.log(await r.json()); // paid $0.005 in USDC, got the data
+const r = await f("https://api.x-402.online/v1/search?q=x402"); // $0.005, settled on-chain
+console.log(await r.json());
 ```
 
-## Use as an MCP server (Claude / Cursor)
+## What's inside
 
-```json
-{
-  "mcpServers": {
-    "x402-farm": {
-      "command": "npx",
-      "args": ["-y", "github:Ghost11777/x402-farm"],
-      "env": {
-        "X402_PRIVATE_KEY": "0x…",
-        "X402_FARM_URL": "https://x402-farm.vercel.app"
-      }
-    }
-  }
-}
-```
+| Category | Routes | From |
+|---|---|---|
+| 🔎 **Web search** | Google results (organic + answer box + knowledge graph) | $0.005 |
+| 🌍 **Utilities** | weather (worldwide), crypto prices, DNS, email validation, IBAN | $0.003 |
+| 🕸️ **Web tooling** | extract, render (JS), screenshot, PDF, links, meta — served from a **residential IP** | $0.01 |
+| 🇫🇷 **French business data** (deepest x402 coverage) | company identity (SIREN/SIRET), **annual accounts (INPI)**, **insolvency (BODACC)**, KYB + VIES VAT, credit-style score, director networks, competitors | $0.003–0.12 |
+| 🏠 **French real estate** | DVF sale-price valuations, DPE energy, risks, investment scorecard | $0.02–0.08 |
+| 🇬🇧🇺🇸 **UK / US** | Companies House, SEC EDGAR filings & financials | $0.005–0.08 |
+| 🧩 **Composites** | entreprise-360, KYB dossier, location studies — several sources in one call | $0.02–0.12 |
 
-Without `X402_PRIVATE_KEY`, only the free preview tool works. With a funded Base USDC wallet, every tool pays per call from that wallet.
+Full machine-readable docs: [`/llms.txt`](https://api.x-402.online/llms.txt) · [`/openapi.json`](https://api.x-402.online/openapi.json) · [`/.well-known/x402`](https://api.x-402.online/.well-known/x402)
 
-## Run it yourself
+## Agent-friendly by design
 
-```bash
-npm install && npx playwright install chromium
-cp .env.example .env      # set PAY_TO to your USDC address; leave empty for free dev mode
-npm start
-```
+- **Every route accepts GET and POST** (query params or JSON body — your call)
+- **Progressive pricing**: big composites have a `/partial` LITE version from $0.02; every `402` response advertises the cheaper alternative and free trial in an `alternatives` field
+- **MCP server** at [`/mcp`](https://api.x-402.online/mcp) (JSON-RPC, Streamable HTTP): 61 tools, x402 payment relayed end-to-end — proven on-chain
+- **Multi-surface discovery**: Bazaar extensions, `llms.txt`, OpenAPI, agent-skills, `Link` headers
 
-Deploy: `vercel deploy --prod` (serverless Chromium via `@sparticuz/chromium`) or `docker build -t x402-farm . && docker run -p 3402:3402 --env-file .env x402-farm`.
+## Architecture
 
-## Notes
+Vercel (paywall x402 + fast APIs) → Cloudflare named tunnel → **Mac mini worker** (residential IP, real Chromium, auth-gated sources like INPI) with automatic datacenter fallback. Analytics + a daily on-chain **market radar** (unique payers per service across the whole x402 ecosystem) drive which APIs live or die.
 
-- `NETWORK=eip155:8453` (Base mainnet) uses the Coinbase CDP facilitator; `eip155:84532` (Base Sepolia) uses the public `x402.org` facilitator for testing.
-- Anti-SSRF guard blocks private/link-local addresses. In-memory TTL cache. Browser concurrency semaphore.
-- Listed on [x402scan](https://www.x402scan.com).
+## Stack
 
-MIT
+Express · `@x402/express` (multi-network resource server) · Coinbase CDP facilitator · Supabase (analytics) · Playwright · deployed on Vercel + a Mac mini.
+
+---
+
+*Built by [Laurent Halbrun](https://github.com/Ghost11777). USDC revenue wallet: [`0x2c87…735F`](https://basescan.org/address/0x2c871C2b8876dc35e9E19646FDa5ABF1cd27735F) — every sale is verifiable on-chain.*
