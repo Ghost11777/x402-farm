@@ -207,6 +207,11 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// Routes /trial montées AVANT le paywall : quand le middleware ci-dessus réécrit vers
+// /trial/…, elles servent la donnée et court-circuitent le paywall (qui, lui, matche
+// sur l'URL d'origine et re-facturerait sinon).
+for (const r of [utilityRoutes, dataRoutes, frdataRoutes, compositeRoutes, bodaccRoutes, scoringRoutes, intelRoutes, ukRoutes, usRoutes]) app.use("/trial", r);
+
 if (PAY_TO) {
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
   // Testnet -> facilitateur public x402.org.
@@ -247,7 +252,6 @@ if (PAY_TO) {
 app.use(webRoutes);
 app.use(utilityRoutes);
 app.use(dataRoutes);
-for (const r of [utilityRoutes, dataRoutes, frdataRoutes, compositeRoutes, bodaccRoutes, scoringRoutes, intelRoutes, ukRoutes, usRoutes]) app.use("/trial", r);
 app.use(frdataRoutes);
 app.use(compositeRoutes);
 app.use(inpiRoutes);
