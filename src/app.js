@@ -212,9 +212,15 @@ const API_KEYS = new Map(
   (process.env.INTERNAL_API_KEYS || "").split(",").map((s) => s.trim()).filter(Boolean)
     .map((pair) => { const i = pair.indexOf(":"); return i > 0 ? [pair.slice(i + 1), pair.slice(0, i)] : [pair, "api"]; })
 );
+// RapidAPI proxifie les requêtes des abonnés en y ajoutant un secret partagé
+// (X-RapidAPI-Proxy-Secret). Il facture l'abonné en fiat de son côté ; on sert la donnée.
+const RAPIDAPI_SECRET = process.env.RAPIDAPI_PROXY_SECRET || "";
 app.use((req, res, next) => {
   const key = req.get("x-api-key") || req.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (key && API_KEYS.has(key)) { req._apiKey = true; req._apiChannel = API_KEYS.get(key); }
+  else if (RAPIDAPI_SECRET && req.get("x-rapidapi-proxy-secret") === RAPIDAPI_SECRET) {
+    req._apiKey = true; req._apiChannel = "rapidapi";
+  }
   next();
 });
 
