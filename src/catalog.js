@@ -128,13 +128,27 @@ export const CATALOG = [
 ];
 
 // Routes à clé amont : n'apparaissent (catalogue + paywall + MCP) que si la clé est configurée.
-if (process.env.SERPER_API_KEY) CATALOG.push({
-  route: "GET /v1/search", price: "$0.005",
-  desc: "Web search (Google results via Serper): top 10 organic results + answer box + knowledge graph. Query: ?q=&gl=&hl=",
-  bazaar: { method: "GET", input: { q: "x402 protocol" }, output: { example: { results: [{ title: "x402", url: "https://x402.org", snippet: "…" }] } } },
-});
-if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) CATALOG.push({
-  route: "POST /v1/llm", price: "$0.01",
-  desc: "LLM inference pay-per-call, no account: prompt in, completion out (fast frontier-lab mini model, up to 2000 output tokens). Body: {prompt, system?, max_tokens?}",
-  bazaar: { bodyType: "json", method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
-});
+if (process.env.SERPER_API_KEY) {
+  CATALOG.push({
+    route: "GET /v1/search", price: "$0.003",
+    desc: "Cheap web search (real Google results via Serper): top 10 organic results + answer box + knowledge graph. Cheaper than Exa /search on x402. Query: ?q=&gl=&hl=",
+    bazaar: { method: "GET", input: { q: "x402 protocol" }, output: { example: { results: [{ title: "x402", url: "https://x402.org", snippet: "…" }] } } },
+  });
+  CATALOG.push({
+    route: "GET /v1/search/news", price: "$0.003",
+    desc: "Fresh news search (Google News via Serper): latest headlines with source, date, snippet. Great for crypto/market/current-events agents. Query: ?q=&gl=&hl=",
+    bazaar: { method: "GET", input: { q: "bitcoin" }, output: { example: { news: [{ title: "…", link: "…", date: "1h ago", source: "…" }] } } },
+  });
+}
+if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) {
+  CATALOG.push({
+    route: "POST /v1/llm", price: "$0.002",
+    desc: "Cheap LLM inference pay-per-call, no account, no API key: prompt in, completion out (DeepSeek v4, up to 2000 output tokens). Among the lowest $/call on x402. Body: {prompt, system?, max_tokens?}",
+    bazaar: { bodyType: "json", method: "POST", input: { prompt: "Summarize x402 in one sentence" }, output: { example: { output: "x402 lets agents pay APIs per call in stablecoins.", usage: { output_tokens: 18 } } } },
+  });
+  CATALOG.push({
+    route: "POST /v1/llm/pro", price: "$0.006",
+    desc: "Smart LLM inference (DeepSeek v4 Pro): stronger reasoning for hard prompts, up to 2000 output tokens, no account. Body: {prompt, system?, max_tokens?}",
+    bazaar: { bodyType: "json", method: "POST", input: { prompt: "Explain the tradeoffs of x402 vs API keys" }, output: { example: { output: "…", usage: { output_tokens: 300 } } } },
+  });
+}

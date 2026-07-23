@@ -66,6 +66,21 @@ if (process.env.SERPER_API_KEY) {
       });
     } catch (e) { res.status(e.status || 502).json({ error: e.message || "search_failed" }); }
   });
+
+  // Recherche d'actualités (Google News via Serper) — demande vue dans le Bazaar (crypto news)
+  router.all("/v1/search/news", async (req, res) => {
+    const query = q(req, "q");
+    if (!query) return res.status(400).json({ error: "missing_q" });
+    try {
+      const d = await cached(`serpnews:${query.toLowerCase()}:${q(req, "gl") || "us"}`, 900_000, () =>
+        getJson("https://google.serper.dev/news", {
+          method: "POST",
+          headers: { "X-API-KEY": process.env.SERPER_API_KEY, "content-type": "application/json" },
+          body: JSON.stringify({ q: query, gl: q(req, "gl") || undefined, hl: q(req, "hl") || undefined }),
+        }));
+      res.json({ query, news: (d.news || []).map((n) => ({ title: n.title, link: n.link, snippet: n.snippet, date: n.date, source: n.source })).slice(0, 12) });
+    } catch (e) { res.status(e.status || 502).json({ error: e.message || "news_failed" }); }
+  });
 }
 
 // ===== /v1/llm : inférence LLM pay-per-call (endpoint OpenAI-compatible) =====
@@ -74,8 +89,9 @@ if (process.env.SERPER_API_KEY) {
 const LLM_KEY = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
 const LLM_BASE = process.env.LLM_BASE_URL || (process.env.LLM_API_KEY ? "https://api.deepseek.com" : "https://api.openai.com");
 const LLM_MODEL = process.env.LLM_MODEL || (process.env.LLM_API_KEY ? "deepseek-chat" : "gpt-5-mini");
-if (LLM_KEY) {
-  router.all("/v1/llm", async (req, res) => {
+const LLM_MODEL_PRO = process.env.LLM_MODEL_PRO || (process.env.LLM_API_KEY ? "deepseek-v4-pro" : "gpt-5");
+function llmHandler(model) {
+  return async (req, res) => {
     const prompt = (req.body?.prompt || q(req, "prompt") || "").toString().slice(0, 8000);
     if (!prompt) return res.status(400).json({ error: "missing_prompt" });
     const system = (req.body?.system || q(req, "system") || "").toString().slice(0, 2000);
@@ -85,18 +101,22 @@ if (LLM_KEY) {
         method: "POST",
         headers: { authorization: `Bearer ${LLM_KEY}`, "content-type": "application/json" },
         body: JSON.stringify({
-          model: LLM_MODEL,
+          model,
           messages: [...(system ? [{ role: "system", content: system }] : []), { role: "user", content: prompt }],
           max_tokens: maxTokens,
         }),
-      }, 60_000);
+      }, 90_000);
       const output = d.choices?.[0]?.message?.content ?? null;
       // Ne jamais renvoyer 200 sans contenu : le paywall a déjà réglé, on doit livrer.
       if (!output) return res.status(502).json({ error: "llm_empty_response" });
       res.json({ output, model: d.model,
         usage: d.usage ? { input_tokens: d.usage.prompt_tokens, output_tokens: d.usage.completion_tokens } : null });
     } catch (e) { res.status(e.status || 502).json({ error: e.message || "llm_failed" }); }
-  });
+  };
+}
+if (LLM_KEY) {
+  router.all("/v1/llm", llmHandler(LLM_MODEL));
+  router.all("/v1/llm/pro", llmHandler(LLM_MODEL_PRO));
 }
 
 export default router;

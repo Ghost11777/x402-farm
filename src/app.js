@@ -141,9 +141,16 @@ app.get("/", (_req, res) =>
       "The x402 farm for business & open data, agent-first. Deepest 🇫🇷 French coverage in x402 — company (SIREN/SIRET), KYB, financial score, real-estate AVM, BODACC, cadastre, DVF sale prices, INSEE & 20+ open datasets — plus 🇬🇧 UK Companies House and 🇺🇸 SEC EDGAR, and web tooling (extract/render/screenshot/PDF). Pay-per-call USDC, no account, no API key.",
     payment: PAY_TO ? { protocol: "x402", network: NETWORK, payTo: PAY_TO } : { mode: "FREE (no PAY_TO configured)" },
     discovery: { openapi: "/openapi.json", llms: "/llms.txt", mcp: "/mcp", well_known: "/.well-known/x402" },
+    highlights: [
+      "Cheap LLM inference from $0.002/call (DeepSeek v4) — among the lowest $/call on x402",
+      "Real Google web + news search from $0.003/call",
+      "Residential-IP web scraping (extract/render/screenshot/PDF) — rare on x402",
+      "Deepest French company data (INPI, BODACC, KYB) + UK/US filings",
+      "1 free call/day per client, all routes GET+POST, progressive /partial pricing",
+    ],
     quickstart: {
-      cheapest_probe: "GET /v1/weather?city=Paris — $0.003, any x402 client",
-      note: "All /v1 routes accept GET and POST. Each 402 includes cheaper alternatives when available.",
+      cheapest_probe: "POST /v1/llm {\"prompt\":\"...\"} — $0.002, or GET /v1/weather?city=Paris — $0.003",
+      note: "All /v1 routes accept GET and POST. First daily call is free. Each 402 lists cheaper alternatives.",
       docs: "/llms.txt",
     },
     endpoints: CATALOG,
