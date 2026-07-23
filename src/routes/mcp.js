@@ -35,10 +35,10 @@ const toolList = () =>
 const ok = (id, result) => ({ jsonrpc: "2.0", id, result });
 const err = (id, code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
-async function callEndpoint(base, tool, args, pay) {
+async function callEndpoint(base, tool, args, pay, clientIp) {
   const { method, path } = tool;
   let url = `${base}${path}`;
-  const init = { method, headers: {}, signal: AbortSignal.timeout(40000) };
+  const init = { method, headers: clientIp ? { "x-forwarded-for": clientIp } : {}, signal: AbortSignal.timeout(40000) };
   if (pay?.value) init.headers[pay.name] = pay.value; // x402 v2 = PAYMENT-SIGNATURE, v1 = X-PAYMENT
   if (method === "GET") {
     const qs = Object.entries(args || {})
@@ -58,7 +58,7 @@ async function callEndpoint(base, tool, args, pay) {
   };
 }
 
-async function handle(msg, base, pay) {
+async function handle(msg, base, pay, clientIp) {
   const { id, method, params } = msg || {};
   const isNotification = id === undefined || id === null;
   switch (method) {
@@ -81,7 +81,7 @@ async function handle(msg, base, pay) {
       const tool = TOOLS.get(params?.name);
       if (!tool) return err(id, -32602, `Unknown tool: ${params?.name}`);
       try {
-        const r = await callEndpoint(base, tool, params?.arguments || {}, pay);
+        const r = await callEndpoint(base, tool, params?.arguments || {}, pay, clientIp);
         if (r.status === 402) {
           let reqs = null;
           try {
@@ -126,13 +126,14 @@ router.post("/mcp", async (req, res) => {
     : req.get("x-payment")
       ? { name: "X-PAYMENT", value: req.get("x-payment") }
       : null;
+  const clientIp = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip;
   const body = req.body;
   try {
     if (Array.isArray(body)) {
-      const out = (await Promise.all(body.map((m) => handle(m, base, pay)))).filter((r) => r !== null);
+      const out = (await Promise.all(body.map((m) => handle(m, base, pay, clientIp)))).filter((r) => r !== null);
       return out.length ? res.json(out) : res.status(202).end();
     }
-    const result = await handle(body, base, pay);
+    const result = await handle(body, base, pay, clientIp);
     return result === null ? res.status(202).end() : res.json(result);
   } catch {
     return res.json(err(body?.id ?? null, -32700, "Parse error"));

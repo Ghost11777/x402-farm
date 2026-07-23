@@ -23,6 +23,7 @@ import utilityRoutes from "./routes/utility.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
+import { buildTrialEligible, grantFreeCall } from "./lib/trial.js";
 
 const PORT = Number(process.env.PORT || 3402);
 const PAY_TO = process.env.PAY_TO || "";
@@ -127,7 +128,7 @@ app.use((req, res, next) => {
     // jamais déduit du seul statut 2xx (les HEAD passaient pour payés).
     const settled = !!(res.getHeader("payment-response") || res.getHeader("x-payment-response"));
     const paid = price !== undefined && settled && res.statusCode >= 200 && res.statusCode < 300;
-    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") });
+    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req.path.startsWith("/trial/") });
   });
   next();
 });
@@ -192,6 +193,20 @@ app.use(discoveryRoutes);
 app.use(mcpRoutes);
 app.use(freeRoutes);
 
+// ===== 1er appel gratuit / jour / client (routes data <= $0.01) =====
+const TRIAL_ELIGIBLE = buildTrialEligible(CATALOG);
+app.use(async (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "POST") return next();
+  if (!TRIAL_ELIGIBLE.has(req.path)) return next();
+  const hasPayment = req.get("payment-signature") || req.get("x-payment");
+  if (hasPayment) return next(); // il paie : ne pas gaspiller son quota gratuit
+  if (await grantFreeCall(req)) {
+    res.set("x-free-trial", "1 free call per client per day on data routes <= $0.01 - this one was on us");
+    req.url = "/trial" + req.url;
+  }
+  next();
+});
+
 if (PAY_TO) {
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
   // Testnet -> facilitateur public x402.org.
@@ -232,6 +247,7 @@ if (PAY_TO) {
 app.use(webRoutes);
 app.use(utilityRoutes);
 app.use(dataRoutes);
+for (const r of [utilityRoutes, dataRoutes, frdataRoutes, compositeRoutes, bodaccRoutes, scoringRoutes, intelRoutes, ukRoutes, usRoutes]) app.use("/trial", r);
 app.use(frdataRoutes);
 app.use(compositeRoutes);
 app.use(inpiRoutes);
