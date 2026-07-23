@@ -39,6 +39,20 @@ export async function extractViaWorker(url) {
   return { markdown: j.markdown || "", title: j.title || null, servedBy: upstream.headers.get("x-served-by") || null };
 }
 
+// Appel générique d'une route du mini résidentiel depuis un composite (renvoie le JSON).
+// Sert les composites qui ont besoin du scraping résidentiel (ex: leads = maps + registre).
+export async function callWorker(path, params = {}, timeout = 60_000) {
+  if (!WORKER_URL) throw new Error("no_worker");
+  const upstream = await fetch(`${WORKER_URL}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-worker-secret": WORKER_SECRET },
+    body: JSON.stringify(params),
+    signal: AbortSignal.timeout(timeout),
+  });
+  if (!upstream.ok) throw new Error(`worker_${path}_${upstream.status}`);
+  return upstream.json();
+}
+
 export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
   try {

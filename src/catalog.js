@@ -137,6 +137,15 @@ CATALOG.push({
   bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, enriched: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", address: "12 Rue Sainte-Catherine, 33000 Bordeaux", phone: "06 48 56 65 03", website: "https://…", bookingUrl: null, placeId: "ChIJ…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
 });
 
+// LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
+// (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
+// registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
+CATALOG.push({
+  route: "GET /v1/fr/qualified-leads", price: "$0.25",
+  desc: "Qualified French B2B leads in one call: finds businesses by activity+city (Google Maps via residential IP -> phone, website, rating) then CROSS-REFERENCES each with the official company registry (SIREN, legal form, NAF, directors, age, status) and scores them HOT/WARM/COLD. A full call list + qualification a solo dev can't assemble (needs residential IP + registry + orchestration). Query: ?activity=&location=&max=",
+  bazaar: { method: "GET", input: { activity: "plombier", location: "Bordeaux" }, output: { example: { count: 12, summary: { registryMatched: 9, hot: 5 }, leads: [{ name: "…", phone: "05…", website: "https://…", company: { siren: "…", dateCreation: "2012-05-02", ageYears: 14, dirigeants: [{ nom: "…", qualite: "Gérant" }] }, score: 85, tier: "HOT" }] } } },
+});
+
 // Amazon product & search via IP résidentielle + navigateur furtif (Amazon fingerprinte les bots datacenter).
 CATALOG.push({
   route: "GET /v1/amazon", price: "$0.02",
