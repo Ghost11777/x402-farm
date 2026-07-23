@@ -24,6 +24,7 @@ import mapsRoutes from "./routes/maps.js";
 import amazonRoutes from "./routes/amazon.js";
 import immoRoutes from "./routes/immo.js";
 import extractStructuredRoutes from "./routes/extract-structured.js";
+import landingRoutes from "./routes/landing.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -202,6 +203,7 @@ app.use(dashboardRoutes);
 app.use(radarRoutes);
 app.use(discoveryRoutes);
 app.use(mcpRoutes);
+app.use(landingRoutes);
 app.use(freeRoutes);
 
 // ===== Accès par clé API interne (canaux non-x402 : Apify, RapidAPI…) =====
