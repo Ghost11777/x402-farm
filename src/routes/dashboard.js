@@ -49,13 +49,20 @@ async function subsystems() {
       out.worker = { ok: r.ok, ms: Date.now() - t0 };
     } catch { out.worker = { ok: false }; }
   }
-  if (!statusCache.v || Date.now() - (statusCache.regT || 0) > 600000) {
+  // Re-check registre au max toutes les 10 min. Il est souvent LENT (7-8 s) : timeout large,
+  // et sur échec on GARDE le dernier bon statut (une lenteur transitoire ne doit pas
+  // faire clignoter la LED en rouge tant qu'on l'a déjà vu vert récemment).
+  if (!statusCache.v?.registry?.ok || Date.now() - (statusCache.regT || 0) > 600000) {
     try {
-      const r = await fetch("https://registry.modelcontextprotocol.io/v0/servers?search=x-402", { signal: AbortSignal.timeout(5000) });
+      const r = await fetch("https://registry.modelcontextprotocol.io/v0/servers?search=x-402", { signal: AbortSignal.timeout(12000) });
       const j = await r.json();
-      const s = j.servers?.[0];
-      out.registry = { ok: !!s, name: s?.server?.name, status: s?._meta?.["io.modelcontextprotocol.registry/official"]?.status };
-    } catch { out.registry = { ok: false }; }
+      const s = (j.servers || []).find((x) => x._meta?.["io.modelcontextprotocol.registry/official"]?.isLatest) || j.servers?.[0];
+      if (s) out.registry = { ok: true, name: s.server?.name, status: s._meta?.["io.modelcontextprotocol.registry/official"]?.status };
+      else if (!statusCache.v?.registry?.ok) out.registry = { ok: false };
+    } catch {
+      // timeout/erreur réseau : conserver le dernier statut connu, ne pas forcer le rouge
+      if (!statusCache.v?.registry?.ok) out.registry = { ok: false };
+    }
     statusCache.regT = Date.now();
   }
   statusCache = { ...statusCache, v: out, t: Date.now() };
