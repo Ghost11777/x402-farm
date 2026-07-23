@@ -71,6 +71,60 @@ async function subsystems() {
 
 const priceByRoute = Object.fromEntries(CATALOG.map((e) => [e.route.split(" ")[1], e.price]));
 
+// ---------- Canal de monétisation fiat : Apify (hors x402) ----------
+// Les Actors Apify sont des façades qui appellent le backend x402-farm (clé interne) et
+// facturent en fiat, pay-per-result, 80% reversés. On suit ici les signaux de classement
+// Store (runs, users 30j, bookmarks, note) + les prix effectifs. Cache 5 min (API tierce).
+let apifyCache = { v: null, t: 0 };
+async function apifyChannel() {
+  if (!process.env.APIFY_TOKEN) return null;
+  if (apifyCache.v && Date.now() - apifyCache.t < 300000) return apifyCache.v;
+  try {
+    const tok = process.env.APIFY_TOKEN;
+    const r = await fetch(`https://api.apify.com/v2/acts?my=1&limit=50&token=${tok}`,
+      { signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    const list = (j && j.data && j.data.items) || [];
+    // La liste est allégée (ni pricingInfos ni isPublic) -> détail par Actor (peu nombreux, caché 5 min).
+    const items = await Promise.all(list.map(async (l) => {
+      try {
+        const d = await fetch(`https://api.apify.com/v2/acts/${l.id}?token=${tok}`,
+          { signal: AbortSignal.timeout(6000) });
+        return (await d.json()).data;
+      } catch { return l; }
+    }));
+    const actors = items.map((a) => {
+      const st = a.stats || {};
+      const pe = (a.pricingInfos && a.pricingInfos[0] && a.pricingInfos[0].pricingPerEvent
+        && a.pricingInfos[0].pricingPerEvent.actorChargeEvents) || {};
+      const prices = Object.entries(pe).filter(([k]) => k !== "apify-actor-start")
+        .map(([k, v]) => ({ event: v.eventTitle || k, usd: v.eventPriceUsd }));
+      return {
+        name: a.name, title: a.title || a.name, public: !!a.isPublic,
+        url: `https://apify.com/${a.username || "x402farm"}/${a.name}`,
+        runs: st.totalRuns || 0, users: st.totalUsers || 0, users30: st.totalUsers30Days || 0,
+        bookmarks: st.bookmarkCount || 0, rating: st.actorReviewRating || 0, reviews: st.actorReviewCount || 0,
+        lastRun: st.lastRunStartedAt || null, priced: prices.length > 0, prices,
+      };
+    }).sort((x, y) => (y.users30 - x.users30) || (y.runs - x.runs));
+    const out = {
+      ok: true, provider: "Apify", model: "fiat · pay-per-result · 80% reversés",
+      actors,
+      totals: {
+        actors: actors.length, published: actors.filter((a) => a.public).length,
+        priced: actors.filter((a) => a.priced).length,
+        runs: actors.reduce((s, a) => s + a.runs, 0),
+        users30: actors.reduce((s, a) => s + a.users30, 0),
+        bookmarks: actors.reduce((s, a) => s + a.bookmarks, 0),
+      },
+    };
+    apifyCache = { v: out, t: Date.now() };
+    return out;
+  } catch {
+    return apifyCache.v || { ok: false, provider: "Apify" };
+  }
+}
+
 function auth(req, res) {
   if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
     res.status(401).type("html").send("<h1>401</h1><p>Ajoutez ?token=VOTRE_ADMIN_TOKEN à l'URL.</p>");
@@ -95,6 +149,7 @@ router.get("/dashboard/data", async (req, res) => {
     subsystems(),
   ]);
   const radar = await sb("radar_latest", "?limit=12");
+  const apify = await apifyChannel();
   const list = Array.isArray(routes) ? routes : [];
   const days = Array.isArray(daily) ? daily : [];
   const paidRoutes = list.filter((r) => r.route?.startsWith("/v1/"))
@@ -120,6 +175,7 @@ router.get("/dashboard/data", async (req, res) => {
     payers: Array.isArray(payers) ? payers : [],
     latency: Array.isArray(latency) ? latency[0] : null,
     radar: Array.isArray(radar) ? radar : [],
+    channels: { apify },
     status: { api: true, mcp: { ok: true, tools: CATALOG.length }, ...status },
   });
 });
@@ -398,6 +454,13 @@ footer a{color:var(--blue);text-decoration:none}
       <tr><th>Service</th><th>Catégorie</th><th class="num">Payeurs ★</th><th class="num">Appels</th><th class="num">Volume</th></tr>
     </thead><tbody></tbody></table></div>
   </div>
+
+  <div class="panel span2">
+    <h2>💳 Canaux fiat — Apify <span class="right" id="chan-sub">pay-per-result · 80% reversés</span></h2>
+    <div class="tbl-scroll" style="max-height:280px"><table id="channels"><thead>
+      <tr><th>Actor</th><th class="num">Prix</th><th class="num">Runs</th><th class="num">Users 30j</th><th class="num">★</th><th class="num">Dernier run</th><th></th></tr>
+    </thead><tbody></tbody></table></div>
+  </div>
 </div>
 
 <footer>
@@ -652,6 +715,32 @@ function renderPayers(payers){
   tb.innerHTML = html || '<tr><td colspan="4" class="empty">Aucun payeur encore</td></tr>';
 }
 
+function renderChannels(ch){
+  var tb = $("channels").querySelector("tbody");
+  if (!ch || !ch.actors || !ch.actors.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">Canal Apify indisponible</td></tr>';
+    return;
+  }
+  var html = "", i;
+  for (i = 0; i < ch.actors.length; i++) {
+    var a = ch.actors[i];
+    var price = a.prices && a.prices.length
+      ? a.prices.map(function(p){ return "$" + p.usd; }).join(" / ")
+      : (a.priced ? "—" : '<span style="color:var(--faint)">non tarifé</span>');
+    html += '<tr><td class="mono">' + (a.public ? "" : "🔒 ") + esc(a.title) + '</td>' +
+      '<td class="num" style="color:var(--up)">' + price + '</td>' +
+      '<td class="num">' + a.runs + '</td>' +
+      '<td class="num" style="font-weight:700">' + a.users30 + '</td>' +
+      '<td class="num">' + (a.rating ? a.rating.toFixed(1) : "—") + '</td>' +
+      '<td class="num" style="color:var(--faint)">' + (a.lastRun ? relTime(a.lastRun) : "—") + '</td>' +
+      '<td><a href="' + a.url + '" target="_blank" rel="noopener" style="color:var(--dim)">↗</a></td></tr>';
+  }
+  tb.innerHTML = html;
+  if (ch.totals) $("chan-sub").textContent = ch.totals.published + " publiés · " +
+    ch.totals.priced + " tarifés · " + ch.totals.runs + " runs · " +
+    ch.totals.users30 + " users 30j · fiat 80%";
+}
+
 // ---- boucle principale ----
 function refresh(){
   if (!TOKEN) { showLock(); return; }
@@ -717,6 +806,7 @@ function refresh(){
       renderRoutes(d.routes);
       renderPayers(d.payers);
       renderRadar(d.radar || []);
+      renderChannels(d.channels && d.channels.apify);
 
       $("f-wallet").textContent = d.payTo || "—";
       if (d.payTo) $("f-scan").href = "https://basescan.org/address/" + d.payTo;

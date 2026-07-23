@@ -127,6 +127,14 @@ export const CATALOG = [
     bazaar: { method: "GET", input: { ticker: "AAPL" }, output: { example: { name: "Apple Inc.", revenue_growth_pct: 6.2, net_margin_pct: 24.3 } } } },
 ];
 
+// Google Maps local business scraper — via IP résidentielle FR (Google bloque les datacenters).
+// Un appel = une recherche activité+lieu -> jusqu'à 120 fiches (nom, note, avis, catégorie, tél, site).
+CATALOG.push({
+  route: "GET /v1/maps", price: "$0.03",
+  desc: "Google Maps local business scraper via a FRENCH RESIDENTIAL IP (Google blocks datacenter IPs). One call = one activity+location search -> up to 120 businesses with name, rating, reviews, category, phone, website, Maps URL. Query: ?q=<activity>&location=<city>&max=",
+  bazaar: { method: "GET", input: { q: "plombier", location: "Bordeaux" }, output: { example: { source: "google_maps", count: 20, results: [{ name: "JFS Plombier Bordeaux", rating: 4.9, reviews: 120, category: "Plombier", phone: "06 48 56 65 03", website: "https://…", mapsUrl: "https://www.google.com/maps/place/…" }] } } },
+});
+
 // Routes à clé amont : n'apparaissent (catalogue + paywall + MCP) que si la clé est configurée.
 if (process.env.SERPER_API_KEY) {
   CATALOG.push({

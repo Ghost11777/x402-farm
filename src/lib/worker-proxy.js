@@ -8,6 +8,22 @@ export const usesWorker = !!WORKER_URL;
 // Renvoie true si la requête a été servie par le worker (réponse déjà pipée).
 // opts.fallbackStatuses : statuts upstream sur lesquels on préfère le fallback local
 // (ex. 503 quand le mini n'a pas encore les credentials d'une source).
+// Rend une URL via le mini résidentiel et RENVOIE le HTML (pour parsing côté backend).
+// Sert les routes structurées (immo, maps, amazon…) : elles ont besoin du HTML, pas d'un pipe.
+// Renvoie { html, servedBy } ou lève. waitFor : ms d'attente JS côté worker (si supporté).
+export async function renderViaWorker(url, { waitFor } = {}) {
+  if (!WORKER_URL) throw new Error("no_worker");
+  const upstream = await fetch(`${WORKER_URL}/v1/render`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-worker-secret": WORKER_SECRET },
+    body: JSON.stringify({ url, ...(waitFor ? { waitFor } : {}) }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!upstream.ok) throw new Error(`worker_render_${upstream.status}`);
+  const j = await upstream.json();
+  return { html: j.html || "", servedBy: upstream.headers.get("x-served-by") || null };
+}
+
 export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
   try {

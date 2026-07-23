@@ -18,6 +18,7 @@ try {
 
 const { default: webRoutes } = await import("../src/routes/web.js");
 const { default: inpiRoutes } = await import("../src/routes/inpi.js");
+const { default: mapsRoutes } = await import("../src/routes/maps.js");
 
 const PORT = Number(process.env.WORKER_PORT || 4020);
 const SECRET = process.env.WORKER_SECRET || "";
@@ -43,6 +44,8 @@ app.use((_req, res, next) => { res.set("x-served-by", "macmini-worker"); next();
 // Les mêmes routes navigateur que Vercel — mais ici Playwright tourne pour de vrai,
 // avec l'IP résidentielle de la box et (à venir) des contextes navigateur connectés.
 app.use(webRoutes);
+// Google Maps : scrape local via l'IP résidentielle (Google bloque les datacenters)
+app.use(mapsRoutes);
 // INPI RNE : appelé depuis l'IP résidentielle (l'INPI tolère mal les IP datacenter)
 app.use(inpiRoutes);
 

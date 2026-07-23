@@ -59,6 +59,12 @@ export async function withPage(url, fn, { fullPage = false } = {}) {
       viewport: { width: 1280, height: fullPage ? 720 : 800 },
       locale: "fr-FR",
     });
+    // Cookies de consentement Google (évitent l'interstitiel consent.google.com sur Maps/Search).
+    // Portée .google.com uniquement -> sans effet sur les autres domaines.
+    await context.addCookies([
+      { name: "SOCS", value: "CAISNQgQEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwMTA5LjA3X3AxGgJlbiACGgYIgLC_rQY", domain: ".google.com", path: "/" },
+      { name: "CONSENT", value: "YES+cb.20210328-17-p0.en+FX+000", domain: ".google.com", path: "/" },
+    ]).catch(() => {});
     const page = await context.newPage();
     page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
     await page.goto(url, { waitUntil: "domcontentloaded" });

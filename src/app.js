@@ -20,6 +20,7 @@ import usRoutes from "./routes/us.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import radarRoutes from "./routes/radar.js";
 import utilityRoutes from "./routes/utility.js";
+import mapsRoutes from "./routes/maps.js";
 import { cacheStats } from "./lib/cache.js";
 import { closeBrowser } from "./lib/browser.js";
 import { logCall, analyticsEnabled } from "./lib/analytics.js";
@@ -267,6 +268,7 @@ if (PAY_TO) {
 }
 
 app.use(webRoutes);
+app.use(mapsRoutes);
 app.use(utilityRoutes);
 app.use(dataRoutes);
 app.use(frdataRoutes);

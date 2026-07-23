@@ -14,3 +14,4 @@ worker/.env
 .cloudflare.token
 .tunnel-connector.token
 .serper.secret
+.apify.secret
