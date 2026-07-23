@@ -128,7 +128,7 @@ app.use((req, res, next) => {
     // jamais déduit du seul statut 2xx (les HEAD passaient pour payés).
     const settled = !!(res.getHeader("payment-response") || res.getHeader("x-payment-response"));
     const paid = price !== undefined && settled && res.statusCode >= 200 && res.statusCode < 300;
-    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req._freeTrial === true });
+    logCall(req, res, { startedAt, paid, amountUsd: price, freeTier: req.path.startsWith("/free/") || req._freeTrial === true || req._apiKey === true });
   });
   next();
 });
@@ -200,6 +200,20 @@ app.use(discoveryRoutes);
 app.use(mcpRoutes);
 app.use(freeRoutes);
 
+// ===== Accès par clé API interne (canaux non-x402 : Apify, RapidAPI…) =====
+// Une clé valide fait sauter le paywall x402 : le canal (Apify) facture l'utilisateur
+// en fiat de son côté et nous reverse sa part ; notre backend sert la donnée.
+// INTERNAL_API_KEYS = "chan1:cle1,chan2:cle2" (préfixe = nom du canal, pour l'analytics).
+const API_KEYS = new Map(
+  (process.env.INTERNAL_API_KEYS || "").split(",").map((s) => s.trim()).filter(Boolean)
+    .map((pair) => { const i = pair.indexOf(":"); return i > 0 ? [pair.slice(i + 1), pair.slice(0, i)] : [pair, "api"]; })
+);
+app.use((req, res, next) => {
+  const key = req.get("x-api-key") || req.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (key && API_KEYS.has(key)) { req._apiKey = true; req._apiChannel = API_KEYS.get(key); }
+  next();
+});
+
 // ===== 1er appel gratuit / jour / client (routes data <= $0.01) =====
 const TRIAL_ELIGIBLE = buildTrialEligible(CATALOG);
 app.use(async (req, res, next) => {
@@ -246,7 +260,7 @@ if (PAY_TO) {
     })
   );
   const pm = paymentMiddleware(routes, resourceServer);
-  app.use((req, res, next) => (req._freeTrial ? next() : pm(req, res, next)));
+  app.use((req, res, next) => (req._freeTrial || req._apiKey ? next() : pm(req, res, next)));
   console.log(`[x402] paywall ON — [${NETWORKS.join(", ")}] -> ${PAY_TO} via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
