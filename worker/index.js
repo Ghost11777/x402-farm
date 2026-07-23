@@ -21,6 +21,7 @@ const { default: inpiRoutes } = await import("../src/routes/inpi.js");
 const { default: mapsRoutes } = await import("../src/routes/maps.js");
 const { default: amazonRoutes } = await import("../src/routes/amazon.js");
 const { default: immoRoutes } = await import("../src/routes/immo.js");
+const { default: leboncoinRoutes } = await import("../src/routes/leboncoin.js");
 
 const PORT = Number(process.env.WORKER_PORT || 4020);
 const SECRET = process.env.WORKER_SECRET || "";
@@ -51,6 +52,7 @@ app.use(mapsRoutes);
 // Amazon + immo (Bien'ici) : navigateur furtif anti-anti-bot sur l'IP résidentielle
 app.use(amazonRoutes);
 app.use(immoRoutes);
+app.use(leboncoinRoutes);
 // INPI RNE : appelé depuis l'IP résidentielle (l'INPI tolère mal les IP datacenter)
 app.use(inpiRoutes);
 

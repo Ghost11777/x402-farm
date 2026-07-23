@@ -16,3 +16,4 @@ worker/.env
 .serper.secret
 .apify.secret
 .env*
+worker/.leboncoin-cookie.json

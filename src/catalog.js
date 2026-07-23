@@ -143,6 +143,12 @@ CATALOG.push({
   bazaar: { method: "GET", input: { name: "Decathlon", city: "Lille" }, output: { example: { company: { siren: "306138900", legalName: "DECATHLON", dirigeants: [{ nom: "...", qualite: "President" }] }, risk: { hasInsolvencyHistory: false }, contact: { phone: "03...", website: "https://..." } } } },
 });
 
+CATALOG.push({
+  route: "GET /v1/fr/leboncoin", price: "$0.02",
+  desc: "Leboncoin listings (France's #1 classifieds) via its internal JSON API + a residential IP that carries a solved DataDome session. Reaches what cloud scrapers cannot (Leboncoin is DataDome-protected). Search by keyword and/or category + city -> structured ads (title, price, city, date, url, images, attributes). Query: ?text=&category=&city=&zipcode=&limit=",
+  bazaar: { method: "GET", input: { text: "iphone", city: "Bordeaux" }, output: { example: { source: "leboncoin.fr", total: 1240, count: 20, ads: [{ id: "2812345678", title: "iPhone 13", price: 420, city: "Bordeaux", url: "https://www.leboncoin.fr/ad/..." }] } } },
+});
+
 // LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
 // (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
 // registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
