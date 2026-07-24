@@ -155,6 +155,12 @@ CATALOG.push({
   bazaar: { method: "GET", input: { city: "Bordeaux", cp: "33000" }, output: { example: { source: "seloger.com", count: 25, summary: { medianAskingPricePerM2: 5200 }, listings: [{ type: "Appartement", rooms: 4, surface: 132, price: 1370000, pricePerM2: 8422 }] } } },
 });
 
+CATALOG.push({
+  route: "GET /v1/unblock", price: "$0.02",
+  desc: "Unblock ANY anti-bot-protected URL (DataDome, Cloudflare, PerimeterX) and get clean content. Sell the capability, not the data: residential IP + challenge solving. Query: ?url= (&country=fr &render=true &format=html|text|markdown). Returns the page others can't fetch.",
+  bazaar: { method: "GET", input: { url: "https://www.leboncoin.fr" }, output: { example: { url: "https://…", format: "html", bytes: 1050000, html: "<html>…</html>" } } },
+});
+
 // LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
 // (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
 // registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
