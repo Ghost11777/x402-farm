@@ -9,18 +9,34 @@ const router = Router();
 const INPI = "https://registre-national-entreprises.inpi.fr/api";
 
 let tokenCache = { token: null, expires: 0 };
+// Anti-verrouillage : si le login échoue (mauvais mdp, compte bloqué…), on cesse
+// TOUTE tentative pendant ce délai. Évite de marteler l'INPI et d'aggraver un blocage.
+let loginBlockedUntil = 0;
 
 async function getToken() {
   if (tokenCache.token && tokenCache.expires > Date.now()) return tokenCache.token;
+  if (Date.now() < loginBlockedUntil) {
+    throw Object.assign(new Error("inpi_login_cooldown"), { status: 503 });
+  }
   const u = process.env.INPI_USERNAME, p = process.env.INPI_PASSWORD;
   if (!u || !p) throw Object.assign(new Error("inpi_not_configured"), { status: 503 });
-  const r = await fetch(`${INPI}/sso/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: u, password: p }),
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!r.ok) throw Object.assign(new Error("inpi_login_failed"), { status: 502 });
+  let r;
+  try {
+    r = await fetch(`${INPI}/sso/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: u, password: p }),
+      signal: AbortSignal.timeout(12_000),
+    });
+  } catch (e) {
+    loginBlockedUntil = Date.now() + 15 * 60_000; // réseau KO : on souffle 15 min
+    throw Object.assign(new Error("inpi_login_unreachable"), { status: 502 });
+  }
+  if (!r.ok) {
+    // login refusé -> backoff 15 min (ne PAS retenter à chaque requête)
+    loginBlockedUntil = Date.now() + 15 * 60_000;
+    throw Object.assign(new Error("inpi_login_failed"), { status: 502 });
+  }
   const { token } = await r.json();
   tokenCache = { token, expires: Date.now() + 50 * 60_000 };
   return token;
