@@ -161,6 +161,12 @@ CATALOG.push({
   bazaar: { method: "GET", input: { url: "https://www.leboncoin.fr" }, output: { example: { url: "https://…", format: "html", bytes: 1050000, html: "<html>…</html>" } } },
 });
 
+CATALOG.push({
+  route: "GET /v1/fr/biens-sous-cotes", price: "$0.05",
+  desc: "Undervalued French property deal-flow: cross a commune's LISTED prices (Bien'ici) with the OFFICIAL SOLD-price median (DVF) -> properties listed well below what the area actually sells for. Sorted by discount. Query: ?city=&cp=&minGap=20. The asking-vs-sold gap nobody else assembles.",
+  bazaar: { method: "GET", input: { city: "Bordeaux", cp: "33000" }, output: { example: { soldMedianPerM2: 4778, candidatesCount: 6, candidates: [{ type: "Appartement", surface: 70, price: 243000, pricePerM2: 3307, gapPct: -31, url: "https://..." }] } } },
+});
+
 // LEADS QUALIFIÉS : croise Google Maps résidentiel (contact) + registre officiel des entreprises
 // (SIREN, dirigeants, ancienneté, santé) + scoring. Infaisable pour un dev seul (IP résidentielle +
 // registre + orchestration). Un appel = jusqu'à 30 leads B2B enrichis et notés HOT/WARM/COLD.
