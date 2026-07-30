@@ -1,0 +1,15 @@
+{
+  "_comment": "Each target: id, label, url, one of {json: dotPath | selector: cssSelector | jsExpr: code}, intervalMin, alertOn (change|increase|decrease), and an alert channel (ntfy topic or webhook). Logged-in targets just use a selector on a page the warm browser is already authenticated to.",
+  "targets": [
+    {
+      "id": "farm-revenue",
+      "label": "x402-farm cumulative revenue (sale alert)",
+      "url": "https://api.x-402.online/dashboard/data?token=aa55878dbd7dd831cf306f1a7d466d45abaac4384ede2fa8",
+      "json": "cumulative.revenue",
+      "intervalMin": 5,
+      "alertOn": "increase",
+      "priority": "high",
+      "ntfy": "x402farm-byol-a7f3"
+    }
+  ]
+}

@@ -13,6 +13,7 @@
     "@coinbase/x402": "^2.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@sparticuz/chromium": "^149.0.0",
+    "@x402/avm": "^2.20.0",
     "@x402/core": "^2.19.0",
     "@x402/evm": "^2.19.0",
     "@x402/express": "^2.19.0",

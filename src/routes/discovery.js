@@ -19,7 +19,7 @@ router.get("/llms.txt", (req, res) => {
   const lines = [
     "# x402-farm",
     "",
-    `> ${CATALOG.length} pay-per-call APIs for AI agents — the deepest 🇫🇷 French business & open-data coverage in x402 (company/SIREN-SIRET, KYB, financial score, real-estate AVM, BODACC, cadastre, DVF, INSEE), plus 🇬🇧 UK Companies House, 🇺🇸 SEC EDGAR, and web tooling. x402 (USDC on Base/Polygon/Arbitrum), no account, no API key.`,
+    `> ${CATALOG.length} pay-per-call APIs for AI agents. Crypto & DeFi: token market data, **honeypot / rug-pull security checks** (verdict before you trade), DeFi yields, gas, trending & new pools across 8 chains. Web: **residential-IP scraping** that reaches sites blocking datacenter/cloud IPs (Firecrawl/ScrapingBee territory, a fraction of the price), and a **residential PROXY by the GB** (/v1/proxy/1gb|5gb|20gb — route any HTTP/HTTPS traffic through a real residential IP, from $2/GB, cheaper than Browserbase/Bright Data). Safety: an **agent input-firewall** that flags prompt-injection / exfil / scam in untrusted content. Plus cheap LLM inference, and deep global company data (US SEC EDGAR, UK Companies House, FR SIREN/KYB). x402 (USDC on Base/Polygon/Arbitrum), no account, no API key.`,
     "",
     `Machine-readable catalog: ${base}/ (JSON) and ${base}/openapi.json`,
     `Discovery: ${base}/.well-known/x402 · ${base}/.well-known/mcp · ${base}/.well-known/agent-skills.json`,
@@ -77,6 +77,7 @@ router.get("/openapi.json", (req, res) => {
   for (const e of CATALOG) {
     const [method, path] = e.route.split(" ");
     const isPost = method === "POST";
+    const priceUsd = parseFloat(String(e.price).replace(/[^0-9.]/g, "")) || 0;
     paths[path] = {
       [method.toLowerCase()]: {
         summary: e.desc,
@@ -101,15 +102,21 @@ router.get("/openapi.json", (req, res) => {
           200: { description: "Success", ...(e.bazaar?.output?.example ? { content: { "application/json": { example: e.bazaar.output.example } } } : {}) },
           402: { description: "Payment required (x402 — see PAYMENT-REQUIRED response header)" },
         },
+        "x-payment-info": {
+          protocols: [{ x402: {} }],
+          price: { mode: "fixed", currency: "USDC", amount: priceUsd },
+        },
       },
     };
   }
   res.json({
     openapi: "3.1.0",
     info: {
-      title: "x402-farm",
+      title: "x402-farm — pay-per-call data & security tools for AI agents",
       version: "1.0.0",
       description: "Pay-per-call APIs for AI agents — x402 protocol, USDC on Base, no account needed.",
+      "x-guidance":
+        "Each route is a named job at a fixed USDC price (see per-operation x-payment-info). Unpaid requests return HTTP 402 with x402 payment instructions. Highest-value jobs: GET /v1/crypto/security (honeypot / rug-pull verdict OK/CAUTION/HIGH_RISK/AVOID before trading, 8 chains), POST /v1/extract (residential-IP web scraping — reaches sites blocking datacenter/cloud IPs, returns clean markdown), GET /v1/fr/kyb (company KYB / SIREN), GET /v1/crypto/token (live token price & liquidity), and GET /v1/proxy/1gb|5gb|20gb (buy a RESIDENTIAL PROXY by the GB — route your HTTP/HTTPS traffic through a real residential IP that datacenter proxies can't match; returns a ready-to-use proxy key, from $2/GB, cheaper than Browserbase/Bright Data). Pay per call, no subscription, no API key.",
       contact: { email: "laurenthalbrun@gmail.com" },
     },
     servers: [{ url: base }],
@@ -124,7 +131,7 @@ router.get("/.well-known/x402", (req, res) => {
     x402Version: 2,
     name: "x402-farm",
     description:
-      "Pay-per-call data & web APIs for AI agents — French/UK/US company data, KYB, real-estate AVM, SEC EDGAR & Companies House, web extraction. USDC on Base/Polygon/Arbitrum, no account, no API key.",
+      "Pay-per-call APIs for AI agents: crypto & DeFi market data + token security/honeypot checks, residential-IP web scraping (bypasses datacenter blocks), an agent input-firewall (prompt-injection/scam guard), cheap LLM inference, and global company data (US/UK/FR). USDC on Base/Polygon/Arbitrum, no account, no API key.",
     payment: { protocol: "x402", networks: NETWORKS, asset: "USDC", payTo: PAY_TO },
     discovery: {
       catalog: `${base}/`,

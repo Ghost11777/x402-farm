@@ -1,0 +1,11 @@
+{
+  "name": "byol-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bring-Your-Own-Login monitoring on a warm residential browser: watch gated dashboards you're logged into, diff, and alert.",
+  "scripts": {
+    "start": "node monitor.mjs",
+    "once": "node monitor.mjs --once"
+  }
+}

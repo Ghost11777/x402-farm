@@ -1,0 +1,19 @@
+{
+  "name": "consumer-fr-diligence",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent de due-diligence B2B France : consomme les APIs FR de la ferme x402 (KYB, insolvabilité, score, BODACC) avec dépense adaptative, et produit un dossier de risque. Vraie demande pour la ferme.",
+  "bin": { "diligence-fr": "cli.js" },
+  "scripts": {
+    "start": "node cli.js",
+    "api": "node api.js"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.19.0",
+    "@x402/fetch": "^2.19.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "viem": "^2.21.0"
+  }
+}

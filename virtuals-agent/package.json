@@ -1,0 +1,16 @@
+{
+  "name": "french-data-butler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent vendeur Virtuals ACP : vend les données FR (KYB, immobilier, extraction) de la ferme x402 à d'autres agents, payé en USDC via escrow.",
+  "scripts": {
+    "start": "node seller.js",
+    "sandbox": "SANDBOX=true node seller.js"
+  },
+  "dependencies": {
+    "@account-kit/infra": "^4",
+    "@virtuals-protocol/acp-node-v2": "^0.1.10",
+    "dotenv": "^16.4.5"
+  }
+}

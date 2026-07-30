@@ -5,8 +5,8 @@ const router = Router();
 
 const PAGE = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>x402-farm — Residential-IP scraping & French data for AI agents and developers</title>
-<meta name="description" content="Residential-IP web scraping (Google Maps, Amazon, Pages Jaunes) + deep French business & open data. Pay per call (crypto) for AI agents, or pay per result (fiat) on Apify. Reaches sites that block datacenters.">
+<title>x402-farm — Crypto/DeFi data, token honeypot checks & residential-IP scraping for AI agents</title>
+<meta name="description" content="Pay-per-call APIs for AI agents: crypto & DeFi market data, token honeypot/rug security checks, DeFi yields & gas across 8 chains, residential-IP web scraping that bypasses datacenter blocks, and an agent input-firewall against prompt-injection. USDC via x402, no account, no API key.">
 <style>
 :root{--bg:#0a0e17;--card:#121826;--line:#1e2636;--fg:#e8edf6;--dim:#98a4b8;--acc:#00e58a;--acc2:#5b8cff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -38,8 +38,8 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:30px 0 60px;colo
 <div class="wrap">
 <header>
   <div class="logo">x402-farm</div>
-  <h1>Scrape the sites that <b>block the cloud</b>.<br>Plus deep French data.</h1>
-  <p class="sub">A real browser on a <b>French residential IP</b> reaches Google Maps, Amazon, Pages Jaunes and more — where datacenter scrapers get blocked. Company data, KYB, real estate, UK/US filings on top. Buy it the way that fits you.</p>
+  <h1>The data & safety layer <b>your AI agent pays for</b>.<br>Per call. In crypto.</h1>
+  <p class="sub">Crypto & DeFi market data, <b>token honeypot / rug checks before you trade</b>, yields & gas across 8 chains. <b>Residential-IP web scraping</b> that reaches sites blocking datacenters. An <b>input-firewall</b> that catches prompt-injection in untrusted content. Cheap LLM inference. Plus deep global company data. Pay per call via x402 — no account, no key.</p>
   <div class="cta">
     <a class="btn" href="https://apify.com/x402farm">Browse the Apify actors →</a>
     <a class="btn alt" href="/llms.txt">Machine docs (agents)</a>
