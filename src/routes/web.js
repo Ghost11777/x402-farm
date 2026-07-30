@@ -1,6 +1,8 @@
 import { Router } from "express";
 import TurndownService from "turndown";
 import { withPage } from "../lib/browser.js";
+// ?exit=mobile -> sortie par l'IP d'opérateur mobile (facturée plus cher, voir catalogue)
+const exitOf = (req) => (String(req.query.exit || req.body?.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { assertPublicUrl } from "../lib/guard.js";
 import { cached } from "../lib/cache.js";
 import { tryWorker } from "../lib/worker-proxy.js";
@@ -29,7 +31,9 @@ async function handle(req, res, fn) {
 // URL -> markdown propre (contenu principal, sans nav/pub)
 router.all("/v1/extract", (req, res) =>
   handle(req, res, async (url) => {
-    const data = await cached(`extract:${url}`, 10 * 60_000, () =>
+    // ⚠️ la sortie fait partie de la clé : sinon un appel « mobile » se ferait servir un
+    // résultat obtenu par la fibre — on livrerait autre chose que ce qui est vendu.
+    const data = await cached(`extract:${url}:${exitOf(req) || "resi"}`, 10 * 60_000, () =>
       withPage(url.href, async (page) => {
         const result = await page.evaluate(() => {
           const pick =
@@ -48,7 +52,7 @@ router.all("/v1/extract", (req, res) =>
           lang: result.lang,
           markdown: turndown.turndown(result.html).replace(/\n{3,}/g, "\n\n").trim(),
         };
-      })
+      }, { exit: exitOf(req) })
     );
     res.json(data);
   })
@@ -58,7 +62,7 @@ router.all("/v1/extract", (req, res) =>
 router.all("/v1/render", (req, res) =>
   handle(req, res, async (url) => {
     const data = await cached(`render:${url}`, 10 * 60_000, () =>
-      withPage(url.href, async (page) => ({ url: url.href, html: await page.content() }))
+      withPage(url.href, async (page) => ({ url: url.href, html: await page.content() }), { exit: exitOf(req) })
     );
     res.json(data);
   })
@@ -68,7 +72,7 @@ router.all("/v1/render", (req, res) =>
 router.all("/v1/screenshot", (req, res) =>
   handle(req, res, async (url) => {
     const fullPage = req.body?.fullPage === true;
-    const buf = await withPage(url.href, (page) => page.screenshot({ fullPage, type: "png" }), { fullPage });
+    const buf = await withPage(url.href, (page) => page.screenshot({ fullPage, type: "png" }), { fullPage, exit: exitOf(req) });
     res.type("png").send(buf);
   })
 );
@@ -76,7 +80,7 @@ router.all("/v1/screenshot", (req, res) =>
 // URL -> PDF (binaire)
 router.all("/v1/pdf", (req, res) =>
   handle(req, res, async (url) => {
-    const buf = await withPage(url.href, (page) => page.pdf({ format: "A4", printBackground: true }));
+    const buf = await withPage(url.href, (page) => page.pdf({ format: "A4", printBackground: true }), { exit: exitOf(req) });
     res.type("application/pdf").send(buf);
   })
 );
@@ -84,7 +88,7 @@ router.all("/v1/pdf", (req, res) =>
 // URL -> liens classés interne/externe avec ancres
 router.all("/v1/links", (req, res) =>
   handle(req, res, async (url) => {
-    const data = await cached(`links:${url}`, 10 * 60_000, () =>
+    const data = await cached(`links:${url}:${exitOf(req) || "resi"}`, 10 * 60_000, () =>
       withPage(url.href, async (page) => {
         const links = await page.evaluate(() =>
           [...document.querySelectorAll("a[href]")].map((a) => ({ href: a.href, text: a.textContent.trim().slice(0, 200) }))
@@ -98,7 +102,7 @@ router.all("/v1/links", (req, res) =>
           (l.href.startsWith(origin) ? internal : external).push(l);
         }
         return { url: url.href, count: seen.size, internal, external };
-      })
+      }, { exit: exitOf(req) })
     );
     res.json(data);
   })
@@ -107,7 +111,7 @@ router.all("/v1/links", (req, res) =>
 // URL -> métadonnées SEO / OpenGraph / JSON-LD
 router.all("/v1/meta", (req, res) =>
   handle(req, res, async (url) => {
-    const data = await cached(`meta:${url}`, 30 * 60_000, () =>
+    const data = await cached(`meta:${url}:${exitOf(req) || "resi"}`, 30 * 60_000, () =>
       withPage(url.href, async (page) =>
         page.evaluate(() => {
           const meta = {};
@@ -122,8 +126,8 @@ router.all("/v1/meta", (req, res) =>
             canonical: document.querySelector('link[rel="canonical"]')?.href || null,
             meta, jsonLd,
           };
-        })
-      )
+        }),
+      { exit: exitOf(req) })
     );
     res.json({ url: url.href, ...data });
   })

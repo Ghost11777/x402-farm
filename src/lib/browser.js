@@ -25,7 +25,25 @@ function release() {
   else active--;
 }
 
-async function launch() {
+// SORTIE MOBILE — le navigateur peut sortir par l'IP d'opérateur mobile (4G) au lieu de
+// la fibre. Prouvé le 2026-07-30 : 193.251.162.192 / France Telecom au lieu de
+// 109.62.35.111 / Outremer Telecom. On lance un navigateur DÉDIÉ derrière le proxy plutôt
+// qu'un proxy par contexte : sur Chromium le proxy par contexte exige un proxy au niveau
+// du lancement, autant être explicite.
+const MOBILE_PROXY = process.env.MOBILE_PROXY_URL || "http://127.0.0.1:8899";
+const MOBILE_USER = process.env.MOBILE_PROXY_USER || "mobile1";
+const MOBILE_KEY = process.env.MOBILE_PROXY_KEY || "";
+export const mobileExitConfigured = !!MOBILE_KEY;
+const proxyCfg = () => ({ server: MOBILE_PROXY, username: MOBILE_USER, password: MOBILE_KEY });
+// Demander la sortie mobile sans l'avoir configurée doit ÉCHOUER, jamais retomber en
+// silence sur la fibre : on ne livre pas autre chose que ce qui est vendu.
+function requireMobile() {
+  if (!MOBILE_KEY) {
+    throw Object.assign(new Error("mobile_exit_not_configured"), { status: 503 });
+  }
+}
+
+async function launch(mobile = false) {
   if (IS_VERCEL) {
     const [{ chromium }, sparticuz] = await Promise.all([
       import("playwright-core"),
@@ -35,13 +53,27 @@ async function launch() {
       headless: true,
       executablePath: await sparticuz.default.executablePath(),
       args: [...sparticuz.default.args, "--disable-dev-shm-usage"],
+      ...(mobile ? { proxy: proxyCfg() } : {}),
     });
   }
   const { chromium } = await import("playwright");
-  return chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  return chromium.launch({
+    headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    ...(mobile ? { proxy: proxyCfg() } : {}),
+  });
 }
+let mobileBrowserPromise = null;
+let mobileStealthPromise = null;
 
-async function getBrowser() {
+async function getBrowser(mobile = false) {
+  if (mobile) {
+    requireMobile();
+    if (!mobileBrowserPromise) {
+      mobileBrowserPromise = launch(true);
+      mobileBrowserPromise.then((b) => b.on("disconnected", () => (mobileBrowserPromise = null)));
+    }
+    return mobileBrowserPromise;
+  }
   if (!browserPromise) {
     browserPromise = launch();
     browserPromise.then((b) => b.on("disconnected", () => (browserPromise = null)));
@@ -49,11 +81,11 @@ async function getBrowser() {
   return browserPromise;
 }
 
-export async function withPage(url, fn, { fullPage = false } = {}) {
+export async function withPage(url, fn, { fullPage = false, exit } = {}) {
   await acquire();
   let context;
   try {
-    const browser = await getBrowser();
+    const browser = await getBrowser(exit === "mobile");
     context = await browser.newContext({
       userAgent: UA,
       viewport: { width: 1280, height: fullPage ? 720 : 800 },
@@ -95,19 +127,29 @@ async function getStealthChromium() {
   stealthChromium = chromium;
   return stealthChromium;
 }
-async function getStealthBrowser() {
+async function getStealthBrowser(mobile = false) {
+  const args = ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage"];
+  if (mobile) {
+    requireMobile();
+    if (!mobileStealthPromise) {
+      const ch = await getStealthChromium();
+      mobileStealthPromise = ch.launch({ headless: true, args, proxy: proxyCfg() });
+      mobileStealthPromise.then((b) => b.on("disconnected", () => (mobileStealthPromise = null)));
+    }
+    return mobileStealthPromise;
+  }
   if (!stealthBrowserPromise) {
     const ch = await getStealthChromium();
-    stealthBrowserPromise = ch.launch({ headless: true, args: ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-dev-shm-usage"] });
+    stealthBrowserPromise = ch.launch({ headless: true, args });
     stealthBrowserPromise.then((b) => b.on("disconnected", () => (stealthBrowserPromise = null)));
   }
   return stealthBrowserPromise;
 }
-export async function withStealthPage(url, fn, { waitMs = 3500, cookies = [] } = {}) {
+export async function withStealthPage(url, fn, { waitMs = 3500, cookies = [], exit } = {}) {
   await acquire();
   let context;
   try {
-    const browser = await getStealthBrowser();
+    const browser = await getStealthBrowser(exit === "mobile");
     context = await browser.newContext({
       userAgent: STEALTH_UA, locale: "fr-FR", timezoneId: "Europe/Paris",
       viewport: { width: 1366, height: 900 },

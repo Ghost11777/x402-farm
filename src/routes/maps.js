@@ -10,6 +10,7 @@
 // désactivable (details=false) pour les gros volumes.
 import { Router } from "express";
 import { withPage } from "../lib/browser.js";
+const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
 const router = Router();
@@ -184,7 +185,7 @@ async function enrich(page, results, count) {
   return done;
 }
 
-async function scrapeMaps(q, location, max, { details, detailsMax }) {
+async function scrapeMaps(q, location, max, { details, detailsMax, exit }) {
   const query = `${q} ${location}`.trim();
   const url = `https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=fr`;
   return withPage(url, async (page) => {
@@ -204,7 +205,7 @@ async function scrapeMaps(q, location, max, { details, detailsMax }) {
     let enriched = 0;
     if (details && results.length) enriched = await enrich(page, results, Math.min(results.length, detailsMax));
     return { results, enriched };
-  });
+  }, { exit });
 }
 
 router.all("/v1/maps", async (req, res) => {
@@ -223,7 +224,7 @@ router.all("/v1/maps", async (req, res) => {
 
   if (!q) return res.status(400).json({ error: "missing_query", hint: "provide ?q= (business type / keyword) and optional ?location=" });
   try {
-    const { results, enriched } = await scrapeMaps(String(q), String(location), max, { details, detailsMax });
+    const { results, enriched } = await scrapeMaps(String(q), String(location), max, { details, detailsMax, exit: exitMode(p) });
     if (!results.length) return res.status(502).json({ error: "no_results", query: { q, location }, hint: "Google Maps returned an empty feed (blocked or no match)." });
     res.json({
       source: "google_maps",

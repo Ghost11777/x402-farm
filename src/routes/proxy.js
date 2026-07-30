@@ -67,6 +67,20 @@ const tierExists = (state, tier) => !!pickExit(state, tier, 0);
 // 503 avant toute demande de paiement — l'agent n'est jamais débité pour rien.
 export function proxyTierGuard() {
   return async (req, res, next) => {
+    // Toute route appelée avec ?exit=mobile sort par l'IP d'opérateur mobile : si aucune
+    // sortie mobile n'est vérifiée, on refuse AVANT le paywall (le règlement x402 précède
+    // le handler, donc facturer puis échouer serait vendre ce qu'on ne peut pas livrer).
+    const wantsMobile = String(req.query.exit || req.body?.exit || "").toLowerCase() === "mobile";
+    if (wantsMobile && req.path.startsWith("/v1/")) {
+      const st = await exitState();
+      if (!pickExit(st, "mobile", 0)) {
+        return res.status(503).json({
+          error: "mobile_exit_unavailable",
+          detail: "No mobile (4G/5G) exit is verified right now, so ?exit=mobile cannot be served. You were not charged. Drop the parameter to use the residential exit.",
+          status_endpoint: "/free/proxy/status",
+        });
+      }
+    }
     if (!req.path.startsWith("/v1/proxy/") && !req.path.startsWith("/v1/mobile-proxy/")) return next();
     const tier = /^\/v1\/(proxy\/mobile|mobile-proxy)\//.test(req.path) ? "mobile" : "residential";
     const gb = Number(/\/(\d+)gb$/.exec(req.path)?.[1] || 0);

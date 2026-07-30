@@ -5,6 +5,7 @@
 //   - search  : ?q=              -> up to ~20 products {asin, title, price, rating, url}
 import { Router } from "express";
 import { withStealthPage } from "../lib/browser.js";
+const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
 const router = Router();
@@ -24,7 +25,7 @@ const priceVal = (s) => {
   return Number.isFinite(v) ? v : null;
 };
 
-async function scrapeProduct(idOrUrl) {
+async function scrapeProduct(idOrUrl, exit) {
   const url = /^https?:\/\//.test(idOrUrl) ? idOrUrl : `https://www.${DOMAIN}/dp/${idOrUrl}`;
   return withStealthPage(url, async (page) => {
     return page.evaluate(() => {
@@ -76,10 +77,10 @@ async function scrapeProduct(idOrUrl) {
         url: location.href.split("?")[0],
       };
     });
-  }, { waitMs: 3000 });
+  }, { waitMs: 3000, exit });
 }
 
-async function scrapeSearch(q, max) {
+async function scrapeSearch(q, max, exit) {
   const url = `https://www.${DOMAIN}/s?k=${encodeURIComponent(q)}`;
   return withStealthPage(url, async (page) => {
     return page.evaluate((MAX) => {
@@ -131,7 +132,7 @@ async function scrapeSearch(q, max) {
       }
       return out;
     }, max);
-  }, { waitMs: 3000 });
+  }, { waitMs: 3000, exit });
 }
 
 router.all("/v1/amazon", async (req, res) => {
@@ -142,14 +143,14 @@ router.all("/v1/amazon", async (req, res) => {
   const max = Math.min(Math.max(Number(p.max || p.maxResults || 20) || 20, 1), 60);
   try {
     if (asin) {
-      const product = await scrapeProduct(String(asin));
+      const product = await scrapeProduct(String(asin), exitMode(p));
       if (!product.title) return res.status(502).json({ error: "product_not_found", hint: "check the ASIN / URL" });
-      return res.json({ source: DOMAIN, mode: "product", product: { ...product, priceValue: priceVal(product.price) } });
+      return res.json({ source: DOMAIN, mode: "product", exit: exitMode(p) || "residential", product: { ...product, priceValue: priceVal(product.price) } });
     }
     if (q) {
-      const results = (await scrapeSearch(String(q), max)).map((r) => ({ ...r, priceValue: priceVal(r.price) }));
+      const results = (await scrapeSearch(String(q), max, exitMode(p))).map((r) => ({ ...r, priceValue: priceVal(r.price) }));
       if (!results.length) return res.status(502).json({ error: "no_results", query: q });
-      return res.json({ source: DOMAIN, mode: "search", query: q, count: results.length, results });
+      return res.json({ source: DOMAIN, mode: "search", exit: exitMode(p) || "residential", query: q, count: results.length, results });
     }
     return res.status(400).json({ error: "missing_input", hint: "provide ?asin= (or ?url=) for a product, or ?q= for a search" });
   } catch (e) {

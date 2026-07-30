@@ -4,6 +4,7 @@
 // Query: ?city= (&cp= &type=achat|location &max=)
 import { Router } from "express";
 import { withStealthPage } from "../lib/browser.js";
+const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
 const router = Router();
@@ -18,7 +19,7 @@ function median(arr) {
   return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
 }
 
-async function scrapeBienici(city, cp, type, max) {
+async function scrapeBienici(city, cp, type, max, exit) {
   const kind = type === "location" ? "location" : "achat";
   const place = cp ? `${slug(city)}-${cp}` : slug(city);
   const url = `https://www.bienici.com/recherche/${kind}/${place}`;
@@ -52,7 +53,7 @@ async function scrapeBienici(city, cp, type, max) {
       }
       return out;
     }, max);
-  }, { waitMs: 4500 });
+  }, { waitMs: 4500, exit });
   return ads;
 }
 
@@ -65,7 +66,7 @@ router.all("/v1/fr/immo", async (req, res) => {
   const max = Math.min(Math.max(Number(p.max || p.maxResults || 25) || 25, 1), 60);
   if (!city) return res.status(400).json({ error: "missing_city", hint: "provide ?city= (and optional ?cp=, ?type=achat|location)" });
   try {
-    const listings = await scrapeBienici(String(city), cp, type, max);
+    const listings = await scrapeBienici(String(city), cp, type, max, exitMode(p));
     if (!listings.length) return res.status(502).json({ error: "no_listings", query: { city, cp, type }, hint: "no ads parsed (check city spelling / add ?cp=)" });
     const ppm2 = listings.map((l) => l.pricePerM2).filter(Boolean);
     const prices = listings.map((l) => l.price).filter(Boolean);
