@@ -61,8 +61,8 @@ router.all("/v1/extract", (req, res) =>
 // URL -> HTML complet après exécution du JS
 router.all("/v1/render", (req, res) =>
   handle(req, res, async (url) => {
-    const data = await cached(`render:${url}`, 10 * 60_000, () =>
-      withPage(url.href, async (page) => ({ url: url.href, html: await page.content() }), { exit: exitOf(req) })
+    const data = await cached(`render:${url}:${exitOf(req) || "resi"}`, 10 * 60_000, () =>
+      withPage(url.href, async (page) => ({ url: url.href, exit: exitOf(req) || "residential", html: await page.content() }), { exit: exitOf(req) })
     );
     res.json(data);
   })

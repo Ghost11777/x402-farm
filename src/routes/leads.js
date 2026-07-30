@@ -126,7 +126,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
   if (!activity) return res.status(400).json({ error: "missing_activity", hint: "provide ?activity=<business type>&location=<city>" });
   // Maps (navigateur réel) + appariement au registre = ~25 s. Caché 12 h par requête :
   // le 2e acheteur de la même recherche est servi en quelques ms.
-  const CKEY = `leads:${String(activity).toLowerCase()}|${String(location).toLowerCase()}|${max}`;
+  const CKEY = `leads:${String(activity).toLowerCase()}|${String(location).toLowerCase()}|${max}|${String(p.exit || "resi").toLowerCase()}`;
   if (LEADS_HOT.has(CKEY)) return res.json({ ...LEADS_HOT.get(CKEY), cached: "memory" });
   {
     const shared = await sharedGet(CKEY);
@@ -135,7 +135,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
 
   let businesses;
   try {
-    const maps = await callWorker("/v1/maps", { q: activity, location, max }, 90_000);
+    const maps = await callWorker("/v1/maps", { q: activity, location, max, ...(String(p.exit || "").toLowerCase() === "mobile" ? { exit: "mobile" } : {}) }, 90_000);
     businesses = (maps.results || []).filter((b) => b.name);
   } catch (e) {
     return res.status(502).json({ error: "lead_source_failed", detail: String(e).slice(0, 140) });
@@ -164,6 +164,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
   const matched = leads.filter((l) => l.company).length;
   const payload = {
     source: "google_maps + french_business_registry",
+    exit: String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : "residential",
     query: { activity, location },
     count: leads.length,
     summary: {
