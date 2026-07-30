@@ -40,7 +40,15 @@ if [ -f "$WIFI_CFG" ]; then
     ping -c1 -W 800 "${GW_W:-0.0.0.0}" >/dev/null 2>&1
     MAC_W="$(mac_on "${GW_W:-x}" "$WIF")"
     MAC_D="$(mac_on "$(ipconfig getoption "$DEF_IF" router 2>/dev/null)" "$DEF_IF")"
-    if [ -z "$MAC_W" ] || { [ -n "$MAC_D" ] && [ "$MAC_W" = "$MAC_D" ]; }; then
+    # ⚠️ Ne ré-associer QUE sur une preuve positive de décrochage : soit l'interface n'a
+    # plus d'IP, soit la MAC de sa passerelle est celle de la box. Une MAC simplement
+    # absente du cache ARP n'est PAS une preuve (constaté le 2026-07-30 : ré-association
+    # inutile à 05:02) — et ré-associer coupe le lien quelques secondes, donc un client.
+    IP_W="$(ipconfig getifaddr "$WIF" 2>/dev/null)"
+    NEED=""
+    [ -z "$IP_W" ] && NEED=1
+    [ -n "$MAC_W" ] && [ -n "$MAC_D" ] && [ "$MAC_W" = "$MAC_D" ] && NEED=1
+    if [ -n "$NEED" ]; then
       COOL="$DIR/.wifi-rejoin.cooldown"
       if [ ! -f "$COOL" ] || [ $(( $(date +%s) - $(stat -f %m "$COOL") )) -gt 300 ]; then
         touch "$COOL"
@@ -69,7 +77,7 @@ for IF in $(ifconfig -l); do
 done
 if [ -z "$CAND_IF" ] && [ -n "$COLLIDE" ]; then               # repli : candidate en conflit
   CAND_IF="${COLLIDE%%=*}"; CAND_IP="${COLLIDE##*=}"
-  say "candidate en conflit de sous-réseau retenue en repli : $CAND_IF ($CAND_IP)"
+  # (pas de journal ici : cette branche est empruntée à chaque passage, elle inonderait le log)
 fi
 [ -n "$CAND_IF" ] || exit 0                                   # rien branché : silence
 
