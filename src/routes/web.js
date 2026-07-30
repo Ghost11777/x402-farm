@@ -1,6 +1,7 @@
 import { Router } from "express";
 import TurndownService from "turndown";
 import { withPage } from "../lib/browser.js";
+import { blockHint } from "../lib/upsell.js";
 // ?exit=mobile -> sortie par l'IP d'opérateur mobile (facturée plus cher, voir catalogue)
 const exitOf = (req) => (String(req.query.exit || req.body?.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { assertPublicUrl } from "../lib/guard.js";
@@ -24,7 +25,7 @@ async function handle(req, res, fn) {
     const url = await assertPublicUrl(getUrlParam(req));
     await fn(url);
   } catch (e) {
-    res.status(e.status || 502).json({ error: e.message || "upstream_error" });
+    res.status(e.status || 502).json({ error: e.message || "upstream_error", ...blockHint(req) });
   }
 }
 

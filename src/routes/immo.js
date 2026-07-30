@@ -4,6 +4,7 @@
 // Query: ?city= (&cp= &type=achat|location &max=)
 import { Router } from "express";
 import { withStealthPage } from "../lib/browser.js";
+import { blockHint } from "../lib/upsell.js";
 const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
@@ -67,7 +68,7 @@ router.all("/v1/fr/immo", async (req, res) => {
   if (!city) return res.status(400).json({ error: "missing_city", hint: "provide ?city= (and optional ?cp=, ?type=achat|location)" });
   try {
     const listings = await scrapeBienici(String(city), cp, type, max, exitMode(p));
-    if (!listings.length) return res.status(502).json({ error: "no_listings", query: { city, cp, type }, hint: "no ads parsed (check city spelling / add ?cp=)" });
+    if (!listings.length) return res.status(502).json({ error: "no_listings", query: { city, cp, type }, ...blockHint(req) });
     const ppm2 = listings.map((l) => l.pricePerM2).filter(Boolean);
     const prices = listings.map((l) => l.price).filter(Boolean);
     res.json({
@@ -81,7 +82,7 @@ router.all("/v1/fr/immo", async (req, res) => {
       listings,
     });
   } catch (e) {
-    res.status(502).json({ error: "immo_scrape_failed", detail: String(e).slice(0, 160) });
+    res.status(502).json({ error: "immo_scrape_failed", detail: String(e).slice(0, 160), ...blockHint(req) });
   }
 });
 

@@ -10,6 +10,7 @@
 // désactivable (details=false) pour les gros volumes.
 import { Router } from "express";
 import { withPage } from "../lib/browser.js";
+import { blockHint, thinResultHint } from "../lib/upsell.js";
 const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
@@ -225,7 +226,7 @@ router.all("/v1/maps", async (req, res) => {
   if (!q) return res.status(400).json({ error: "missing_query", hint: "provide ?q= (business type / keyword) and optional ?location=" });
   try {
     const { results, enriched } = await scrapeMaps(String(q), String(location), max, { details, detailsMax, exit: exitMode(p) });
-    if (!results.length) return res.status(502).json({ error: "no_results", query: { q, location }, hint: "Google Maps returned an empty feed (blocked or no match)." });
+    if (!results.length) return res.status(502).json({ error: "no_results", query: { q, location }, ...blockHint(req) });
     res.json({
       source: "google_maps",
       exit: exitMode(p) || "residential",
@@ -237,7 +238,7 @@ router.all("/v1/maps", async (req, res) => {
       results,
     });
   } catch (e) {
-    res.status(502).json({ error: "maps_scrape_failed", detail: String(e).slice(0, 160) });
+    res.status(502).json({ error: "maps_scrape_failed", detail: String(e).slice(0, 160), ...blockHint(req) });
   }
 });
 

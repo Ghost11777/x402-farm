@@ -5,6 +5,7 @@
 //   - search  : ?q=              -> up to ~20 products {asin, title, price, rating, url}
 import { Router } from "express";
 import { withStealthPage } from "../lib/browser.js";
+import { blockHint } from "../lib/upsell.js";
 const exitMode = (p) => (String(p.exit || "").toLowerCase() === "mobile" ? "mobile" : undefined);
 import { tryWorker } from "../lib/worker-proxy.js";
 
@@ -144,17 +145,17 @@ router.all("/v1/amazon", async (req, res) => {
   try {
     if (asin) {
       const product = await scrapeProduct(String(asin), exitMode(p));
-      if (!product.title) return res.status(502).json({ error: "product_not_found", hint: "check the ASIN / URL" });
+      if (!product.title) return res.status(502).json({ error: "product_not_found", hint: "check the ASIN / URL", ...blockHint(req) });
       return res.json({ source: DOMAIN, mode: "product", exit: exitMode(p) || "residential", product: { ...product, priceValue: priceVal(product.price) } });
     }
     if (q) {
       const results = (await scrapeSearch(String(q), max, exitMode(p))).map((r) => ({ ...r, priceValue: priceVal(r.price) }));
-      if (!results.length) return res.status(502).json({ error: "no_results", query: q });
+      if (!results.length) return res.status(502).json({ error: "no_results", query: q, ...blockHint(req) });
       return res.json({ source: DOMAIN, mode: "search", exit: exitMode(p) || "residential", query: q, count: results.length, results });
     }
     return res.status(400).json({ error: "missing_input", hint: "provide ?asin= (or ?url=) for a product, or ?q= for a search" });
   } catch (e) {
-    res.status(502).json({ error: "amazon_scrape_failed", detail: String(e).slice(0, 160) });
+    res.status(502).json({ error: "amazon_scrape_failed", detail: String(e).slice(0, 160), ...blockHint(req) });
   }
 });
 
