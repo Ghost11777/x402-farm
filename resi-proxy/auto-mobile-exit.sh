@@ -9,6 +9,7 @@ set -uo pipefail
 export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/sbin:/sbin:/usr/bin:/bin
 
 PROXY_USER=evosagency
+HOME_PM2="/Users/evosagency/.npm-global/bin"
 DIR="/Users/$PROXY_USER/x402-farm/resi-proxy"
 STATE="$DIR/.auto-mobile.state"
 LOG="$DIR/auto-mobile.log"
@@ -127,6 +128,20 @@ notify "x402 · sortie 4G détectée" "default" "Interface $CAND_IF ($CAND_IP) d
 
 OUT="$(IFACE="$CAND_IF" SUDO_USER="$PROXY_USER" bash "$DIR/setup-mobile-exit.sh" 2>&1)"
 say "$OUT"
+
+# squid (chemin rapide de NOTRE scraping) porte l'IP du modem en dur : elle change à
+# chaque bail DHCP, donc on la réécrit et on recharge. Sans ça, squid se lie à une IP
+# morte et le mode mobile des actors tombe en silence au prochain redémarrage du modem.
+SQ_CONF="$DIR/squid-mobile.conf"
+SQUID_BIN=/opt/homebrew/opt/squid/sbin/squid
+if [ -f "$SQ_CONF" ]; then
+  ACTUEL="$(sed -n 's/^tcp_outgoing_address //p' "$SQ_CONF" | tr -d ' ')"
+  if [ "$ACTUEL" != "$CAND_IP" ]; then
+    sed -i '' "s/^tcp_outgoing_address .*/tcp_outgoing_address $CAND_IP/" "$SQ_CONF"
+    say "squid : sortie $ACTUEL -> $CAND_IP"
+    sudo -u "$PROXY_USER" "$SQUID_BIN" -k reconfigure -f "$SQ_CONF" 2>/dev/null       || sudo -u "$PROXY_USER" "$HOME_PM2/pm2" restart squid-mobile 2>/dev/null       || say "squid : rechargement à faire à la main"
+  fi
+fi
 echo "$CAND_IF=$CAND_IP" > "$STATE"
 
 # --- verdict : ce que la sonde a réellement observé --------------------------

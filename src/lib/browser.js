@@ -33,12 +33,20 @@ function release() {
 const MOBILE_PROXY = process.env.MOBILE_PROXY_URL || "http://127.0.0.1:8899";
 const MOBILE_USER = process.env.MOBILE_PROXY_USER || "mobile1";
 const MOBILE_KEY = process.env.MOBILE_PROXY_KEY || "";
-export const mobileExitConfigured = !!MOBILE_KEY;
-const proxyCfg = () => ({ server: MOBILE_PROXY, username: MOBILE_USER, password: MOBILE_KEY });
+// Chemin RAPIDE pour notre propre scraping : squid, lié à l'IP du modem, sans
+// authentification, en écoute sur la boucle locale du mini seulement. Notre proxy Node
+// garde l'authentification et le comptage pour les CLIENTS, mais il ne tient pas une page
+// à ~100 connexions parallèles (Google Maps expirait à travers lui). Si squid n'est pas
+// configuré, on retombe sur le proxy client — jamais sur la fibre en silence.
+const MOBILE_SQUID = process.env.MOBILE_PROXY_SQUID || "";
+export const mobileExitConfigured = !!(MOBILE_KEY || MOBILE_SQUID);
+const proxyCfg = () => (MOBILE_SQUID
+  ? { server: MOBILE_SQUID }
+  : { server: MOBILE_PROXY, username: MOBILE_USER, password: MOBILE_KEY });
 // Demander la sortie mobile sans l'avoir configurée doit ÉCHOUER, jamais retomber en
 // silence sur la fibre : on ne livre pas autre chose que ce qui est vendu.
 function requireMobile() {
-  if (!MOBILE_KEY) {
+  if (!MOBILE_KEY && !MOBILE_SQUID) {
     throw Object.assign(new Error("mobile_exit_not_configured"), { status: 503 });
   }
 }
