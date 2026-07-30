@@ -3,10 +3,20 @@ import { CATALOG } from "./catalog.js";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { ExactAvmScheme } from "@x402/avm/exact/server";
+import { USDC_MAINNET_ASA_ID } from "@x402/avm";
+// GoPlausible annonce le réseau Algorand par son genesis-hash COMPLET (le facilitateur
+// matche là-dessus), pas la CAIP-2 tronquée à 32 car. de ALGORAND_MAINNET_CAIP2.
+const ALGO_MAINNET_NET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import webRoutes from "./routes/web.js";
 import discoveryRoutes from "./routes/discovery.js";
+import diligenceRoutes from "./routes/diligence.js";
+import guardRoutes from "./routes/guard.js";
+import cryptoRoutes from "./routes/crypto.js";
+import proxyRoutes, { proxyTierGuard } from "./routes/proxy.js";
 import mcpRoutes from "./routes/mcp.js";
+import demoRoutes from "./routes/demo.js";
 import freeRoutes from "./routes/free.js";
 import dataRoutes from "./routes/data.js";
 import frdataRoutes from "./routes/frdata.js";
@@ -28,6 +38,7 @@ import landingRoutes from "./routes/landing.js";
 import leadsRoutes from "./routes/leads.js";
 import enrichRoutes from "./routes/enrich.js";
 import dealsRoutes from "./routes/deals.js";
+import marchesRoutes from "./routes/marches.js";
 import leboncoinRoutes from "./routes/leboncoin.js";
 import unblockRoutes from "./routes/unblock.js";
 import selogerRoutes from "./routes/seloger.js";
@@ -209,6 +220,7 @@ app.use(dashboardRoutes);
 app.use(radarRoutes);
 app.use(discoveryRoutes);
 app.use(mcpRoutes);
+app.use(demoRoutes);
 app.use(landingRoutes);
 app.use(freeRoutes);
 
@@ -220,6 +232,8 @@ const API_KEYS = new Map(
   (process.env.INTERNAL_API_KEYS || "").split(",").map((s) => s.trim()).filter(Boolean)
     .map((pair) => { const i = pair.indexOf(":"); return i > 0 ? [pair.slice(i + 1), pair.slice(0, i)] : [pair, "api"]; })
 );
+// Canal dédié agent vendeur Virtuals (var séparée pour ne pas toucher INTERNAL_API_KEYS).
+if (process.env.VIRTUALS_API_KEY) API_KEYS.set(process.env.VIRTUALS_API_KEY, "virtuals");
 // RapidAPI proxifie les requêtes des abonnés en y ajoutant un secret partagé
 // (X-RapidAPI-Proxy-Secret). Il facture l'abonné en fiat de son côté ; on sert la donnée.
 const RAPIDAPI_SECRET = process.env.RAPIDAPI_PROXY_SECRET || "";
@@ -246,31 +260,63 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// ===== Bundles proxy : on ne demande le paiement que si la sortie est vérifiée =====
+// (le règlement x402 précède le handler ; sans cette garde, un tier indisponible
+// encaisserait puis renverrait une erreur — exactement ce qu'on s'interdit)
+app.use(proxyTierGuard());
+
 if (PAY_TO) {
+  // CHALLENGE MODE (Algorand Global x402 Challenge) : activé dès que ALGO_PAY_TO (adresse
+  // Algorand 58 car.) est posé. Le facilitateur GoPlausible règle À LA FOIS Base ET Algorand,
+  // donc on garde Base (revenu existant) + on ajoute Algorand. Sinon : comportement inchangé.
+  const ALGO_PAY_TO = process.env.ALGO_PAY_TO;
+  const CHALLENGE = Boolean(ALGO_PAY_TO);
+
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
-  // Testnet -> facilitateur public x402.org.
+  // Testnet -> facilitateur public x402.org. Challenge -> GoPlausible (Base+Algorand).
   let facilitatorConfig = { url: FACILITATOR_URL };
   const isMainnet = NETWORK === "eip155:8453";
-  if (isMainnet) {
+  if (CHALLENGE) {
+    facilitatorConfig = { url: process.env.FACILITATOR_URL || "https://facilitator.goplausible.xyz" };
+  } else if (isMainnet) {
     const { facilitator } = await import("@coinbase/x402");
     facilitatorConfig = facilitator;
   }
-  // En mainnet, on accepte plusieurs chaînes (Base + Polygon + Arbitrum) : l'agent paie
-  // depuis celle qui lui est pratique. En testnet, uniquement le réseau de test.
-  const NETWORKS = isMainnet
-    ? (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim())
-    : [NETWORK];
+  // Mainnet : plusieurs chaînes (l'agent paie depuis la sienne). Challenge : Base + Algorand.
+  const NETWORKS = CHALLENGE
+    ? ["eip155:8453", ALGO_MAINNET_NET]
+    : isMainnet
+      ? (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim())
+      : [NETWORK];
+  const isAlgo = (n) => n.startsWith("algorand:");
   const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
   let resourceServer = new x402ResourceServer(facilitatorClient);
-  for (const n of NETWORKS) resourceServer = resourceServer.register(n, new ExactEvmScheme());
+  for (const n of NETWORKS) resourceServer = resourceServer.register(n, isAlgo(n) ? new ExactAvmScheme() : new ExactEvmScheme());
+  const payToFor = (n) => (isAlgo(n) ? ALGO_PAY_TO : PAY_TO);
   // Tolérance de méthode : les agents sondent en GET des routes POST (24 visiteurs/72 h
   // sur extract/render/screenshot) et inversement. Chaque route /v1 est payable en GET ET POST.
   const routes = Object.fromEntries(
     CATALOG.flatMap((e) => {
+      const bz = e.bazaar
+        ? { ...e.bazaar, discoverable: true, ...(CHALLENGE ? { tags: [...(e.bazaar.tags || []), "x402-global-challenge"] } : {}) }
+        : null;
+      // ⚠️ La description part DANS le payload de paiement, et le facilitateur CDP
+      // rejette le payload au-delà d'une certaine taille (« 'paymentPayload' is invalid »).
+      // Constaté le 2026-07-30 : les routes à desc >~400 car. n'ont JAMAIS encaissé
+      // (guard 629, maps 436, qualified-leads 417 : 0 paiement pour 1139 paywalls) alors
+      // que les courtes passent. On borne donc ici ; le texte complet reste servi par la
+      // page d'accueil, llms.txt et .well-known (qui, eux, ne paient rien).
+      const payDesc = e.desc.length > 280 ? e.desc.slice(0, 277).replace(/[\s,;:.-]+$/, "") + "…" : e.desc;
       const val = {
-        accepts: NETWORKS.map((n) => ({ scheme: "exact", price: e.price, network: n, payTo: PAY_TO })),
-        description: e.desc,
-        ...(e.bazaar ? { extensions: declareDiscoveryExtension({ ...e.bazaar, discoverable: true }) } : {}),
+        accepts: NETWORKS.map((n) => ({
+          scheme: "exact",
+          price: e.price,
+          network: n,
+          payTo: payToFor(n),
+          ...(isAlgo(n) ? { extra: { asset: USDC_MAINNET_ASA_ID } } : {}),
+        })),
+        description: payDesc,
+        ...(bz ? { extensions: declareDiscoveryExtension(bz) } : {}),
       };
       const [method, path] = e.route.split(" ");
       const other = method === "GET" ? "POST" : "GET";
@@ -279,11 +325,15 @@ if (PAY_TO) {
   );
   const pm = paymentMiddleware(routes, resourceServer);
   app.use((req, res, next) => (req._freeTrial || req._apiKey ? next() : pm(req, res, next)));
-  console.log(`[x402] paywall ON — [${NETWORKS.join(", ")}] -> ${PAY_TO} via ${facilitatorConfig.url}`);
+  console.log(`[x402] paywall ON${CHALLENGE ? " (CHALLENGE Base+Algorand via GoPlausible)" : ""} — [${NETWORKS.join(", ")}] via ${facilitatorConfig.url}`);
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
 }
 
+app.use(diligenceRoutes);
+app.use(guardRoutes);
+app.use(cryptoRoutes);
+app.use(proxyRoutes);
 app.use(webRoutes);
 app.use(mapsRoutes);
 app.use(amazonRoutes);
@@ -292,6 +342,7 @@ app.use(extractStructuredRoutes);
 app.use(leadsRoutes);
 app.use(enrichRoutes);
 app.use(dealsRoutes);
+app.use(marchesRoutes);
 app.use(leboncoinRoutes);
 app.use(unblockRoutes);
 app.use(selogerRoutes);

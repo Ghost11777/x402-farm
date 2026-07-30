@@ -41,6 +41,21 @@ app.use((req, res, next) => {
 app.get("/health", (_req, res) =>
   res.json({ ok: true, role: "worker", uptime: process.uptime(), inpi: !!process.env.INPI_USERNAME }));
 
+// État vérifié des sorties proxy (résidentiel + modems 4G) : le resi-proxy sonde
+// chaque sortie et écrit exits-state.json avec l'IP publique réellement obtenue et
+// si l'opérateur est un réseau mobile. La ferme lit ça AVANT de vendre un bundle —
+// pas de sortie vérifiée = pas de vente (503), jamais de tier fantôme.
+app.get("/proxy-exits", (_req, res) => {
+  try {
+    const p = join(dirname(fileURLToPath(import.meta.url)), "..", "resi-proxy", "exits-state.json");
+    const state = JSON.parse(readFileSync(p, "utf8"));
+    const age = Date.now() - Date.parse(state.checkedAt);
+    res.json({ ...state, ageSec: Math.round(age / 1000), stale: age > 30 * 60 * 1000 });
+  } catch (e) {
+    res.status(503).json({ error: "no_exit_state", detail: e.message });
+  }
+});
+
 // Traçabilité : permet de vérifier depuis l'extérieur qu'une réponse vient bien du mini
 app.use((_req, res, next) => { res.set("x-served-by", "macmini-worker"); next(); });
 

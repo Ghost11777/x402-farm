@@ -13,8 +13,17 @@ import { withPage } from "../lib/browser.js";
 import { tryWorker } from "../lib/worker-proxy.js";
 
 const router = Router();
+// Petite mémoire chaude locale (12 h) : cached() exécute une fonction, on veut juste
+// lire/écrire. Même limite qu'ailleurs : mémoire d'instance, donc utile sur instance tiède.
+// Le cache de réponse est PARTAGÉ (Supabase) et géré dans tryWorker : pas de couche
+// mémoire ici, elle ne servait que l'instance qui l'avait remplie et brouillait le
+// diagnostic (un hit mémoire se faisait passer pour un hit partagé).
 
-const DETAILS_MAX_DEFAULT = 25;
+// Chaque fiche ouverte = une navigation navigateur (~2 s). À 25 fiches la route
+// dépassait 33 s, soit plus que le timeout par défaut de la plupart des clients HTTP
+// (30 s) : l'agent payait puis abandonnait avant la réponse. 10 par défaut, plus sur
+// demande explicite (detailsMax), et details=false pour la version ~12 s.
+const DETAILS_MAX_DEFAULT = 10;
 const DETAILS_MAX_CAP = 60;
 
 // --- passe 1 : le feed -------------------------------------------------------
@@ -199,6 +208,9 @@ async function scrapeMaps(q, location, max, { details, detailsMax }) {
 }
 
 router.all("/v1/maps", async (req, res) => {
+  // Réponse mise en cache 12 h par requête : la 1ʳᵉ paie le prix du navigateur réel,
+  // les suivantes sont instantanées (les fiches d'entreprises ne bougent pas dans la
+  // journée). Le cache est vérifié AVANT le renvoi vers le mini, sinon il ne sert à rien.
   // Doit tourner sur le mini résidentiel (Google bloque les datacenters).
   if (await tryWorker(req, res, { forcePost: true })) return;
   const p = { ...req.query, ...(req.body || {}) };

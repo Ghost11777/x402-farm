@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { cached } from "../lib/cache.js";
+import { sharedCached } from "../lib/shared-cache.js";
 
 // Données publiques françaises emballées pour les agents IA.
 // Niche quasi vide sur le Bazaar — c'est le fossé défensif de la ferme.
@@ -7,7 +7,7 @@ const router = Router();
 
 async function proxy(res, key, ttlMs, url, transform = (x) => x, opts = {}) {
   try {
-    const data = await cached(key, ttlMs, async () => {
+    const data = await sharedCached(key, ttlMs, async () => {
       const r = await fetch(url, {
         headers: { "user-agent": "x402-farm/0.1", accept: "application/json", ...(opts.headers || {}) },
         signal: AbortSignal.timeout(opts.timeout || 10_000),
@@ -227,20 +227,39 @@ router.all("/v1/fr/cadastre", (req, res) => {
 });
 
 // ---- 16. DVF : valeurs foncières (transactions immobilières réelles) ----
-router.all("/v1/fr/valeurs-foncieres", (req, res) => {
+router.all("/v1/fr/valeurs-foncieres", async (req, res) => {
   const insee = q(req, "insee");
   if (!/^\d{5}[AB0-9]?$/i.test(insee)) return res.status(400).json({ error: "invalid_insee" });
   const annee = q(req, "annee");
-  const anneeParam = /^\d{4}$/.test(annee) ? `&anneemut=${annee}` : "";
-  proxy(res, `dvf:${insee}:${annee}`, 24 * 3600_000,
-    `https://apidf-preprod.cerema.fr/dvf_opendata/mutations/?code_insee=${encodeURIComponent(insee)}${anneeParam}&page_size=50&ordering=-datemut`,
-    (d) => ({
-      insee, total: d.count,
-      mutations: (d.results || []).map((m) => ({
-        date: m.datemut, nature: m.libnatmut, valeur_fonciere: Number(m.valeurfonc),
-        surface_bati_m2: Number(m.sbati) || null, surface_terrain_m2: Number(m.sterr) || null,
-        nb_locaux: m.nblocmut, vefa: m.vefa, parcelles: m.l_idpar })),
-    }), { timeout: 12_000 });
+  // ⚠️ Sans `anneemut`, `ordering=-datemut` force un tri GLOBAL chez Cerema : timeout sur
+  // les grosses communes (mesuré sur Bordeaux le 2026-07-30). On borne toujours à une année,
+  // en descendant jusqu'à en trouver une qui a des données.
+  const years = /^\d{4}$/.test(annee) ? [annee] : [2024, 2023, 2022];
+  try {
+    const data = await sharedCached(`dvf:${insee}:${annee || "auto"}`, 24 * 3600_000, async () => {
+      for (const y of years) {
+        const url = `https://apidf-preprod.cerema.fr/dvf_opendata/mutations/?code_insee=${encodeURIComponent(insee)}&anneemut=${y}&page_size=50&ordering=-datemut`;
+        const d = await fetch(url, {
+          headers: { "user-agent": "x402-farm/0.1", accept: "application/json" },
+          signal: AbortSignal.timeout(12_000),
+        }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (d?.results?.length) {
+          return {
+            insee, annee: Number(y), total: d.count,
+            mutations: d.results.map((m) => ({
+              date: m.datemut, nature: m.libnatmut, valeur_fonciere: Number(m.valeurfonc),
+              surface_bati_m2: Number(m.sbati) || null, surface_terrain_m2: Number(m.sterr) || null,
+              nb_locaux: m.nblocmut, vefa: m.vefa, parcelles: m.l_idpar })),
+          };
+        }
+      }
+      return null;
+    });
+    if (!data) return res.status(502).json({ error: "no_dvf_data", hint: "no recorded sales for this commune in 2024-2022, or the Cerema upstream is down" });
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: String(e.message || e).slice(0, 120) });
+  }
 });
 
 // ---- 17. Statistiques INSEE d'une commune (population, superficie, densité) ----

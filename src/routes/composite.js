@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { cached } from "../lib/cache.js";
+import { sharedCached } from "../lib/shared-cache.js";
 import { registerPartial } from "../lib/partial.js";
 
 // APIs COMPOSITES : la valeur n'est pas la donnée (publique) mais le TRAVAIL —
@@ -29,7 +30,7 @@ router.all("/v1/fr/entreprise-360", async (req, res) => {
   const input = q(req, "q") || q(req, "siren");
   if (!input) return res.status(400).json({ error: "missing_q_or_siren" });
   try {
-    const data = await cached(`e360:${input}`, 6 * 3600_000, async () => {
+    const data = await sharedCached(`e360:${input}`, 6 * 3600_000, async () => {
       // 1) Résolution de l'entreprise
       const search = await getJson(
         `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(input)}&per_page=1`
@@ -97,7 +98,7 @@ router.all("/v1/fr/estimation-immo", async (req, res) => {
   const typeBien = (q(req, "type") || "appartement").toLowerCase(); // appartement | maison
   if (!adresse) return res.status(400).json({ error: "missing_adresse" });
   try {
-    const data = await cached(`avm:${adresse}:${typeBien}`, 24 * 3600_000, async () => {
+    const data = await sharedCached(`avm:${adresse}:${typeBien}`, 24 * 3600_000, async () => {
       // 1) Géocodage -> code INSEE
       const geo = await getJson(`https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(adresse)}&limit=1`);
       const f = geo.features?.[0];

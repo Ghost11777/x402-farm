@@ -4,6 +4,7 @@
 // Ce que personne d'autre ne produit (asking vs sold à l'échelle). Query: ?city=&cp=&minGap=
 import { Router } from "express";
 import { callWorker } from "../lib/worker-proxy.js";
+import { sharedCached } from "../lib/shared-cache.js";
 
 const router = Router();
 const DVF = "https://apidf-preprod.cerema.fr/dvf_opendata/mutations/";
@@ -23,21 +24,33 @@ async function inseeCode(city, cp) {
   } catch { return null; }
 }
 
-// Médiane €/m² des ventes réelles (DVF) pour une commune, année(s) récentes.
+// Médiane €/m² des ventes réelles (DVF) pour une commune.
+// ⚠️ La source Cerema est LENTE et instable : sur les grosses communes une requête non
+// filtrée par année part en timeout, et 2024 renvoie parfois une page HTML. Motif retenu
+// (identique à estimation-immo, qui tient en prod) : année la plus récente d'abord,
+// page_size=250, 13 s par tentative, on s'arrête dès qu'on a assez de comparables — et le
+// tout est CACHÉ 24 h par commune (DVF ne bouge que 2x/an), donc un échec ponctuel en
+// amont ne casse plus la route une fois la commune réchauffée.
 async function dvfMedian(insee) {
-  for (const year of [2023, 2022]) {
-    try {
-      const u = `${DVF}?code_insee=${insee}&anneemut=${year}&page_size=150`;
-      const d = await (await fetch(u, { headers: { "user-agent": "x402-farm" }, signal: AbortSignal.timeout(20000) })).json();
-      const ppm = [];
-      for (const m of (d.results || [])) {
-        const p = Number(m.valeurfonc), s = Number(m.sbati);
-        if (p > 10000 && s > 9) { const v = p / s; if (v > 400 && v < 15000) ppm.push(v); }
+  return sharedCached(`dvfmed:${insee}`, 24 * 3600_000, async () => {
+    const base = `${DVF}?code_insee=${insee}&page_size=250`;
+    const ppm = [];
+    let year = null;
+    for (const an of [2024, 2023, 2022]) {
+      const d = await fetch(`${base}&anneemut=${an}`, {
+        headers: { "user-agent": "x402-farm" }, signal: AbortSignal.timeout(13_000),
+      }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      for (const m of (d?.results || [])) {
+        if (m.libnatmut && m.libnatmut !== "Vente") continue;
+        const p = Number(m.valeurfonc), sb = Number(m.sbati);
+        if (p > 10000 && sb > 9) { const v = p / sb; if (v > 400 && v < 15000) ppm.push(Math.round(v)); }
       }
-      if (ppm.length >= 10) return { median: median(ppm.map(Math.round)), sample: ppm.length, year };
-    } catch { /* essai année suivante */ }
-  }
-  return null;
+      if (ppm.length) year = year || an;
+      if (ppm.length >= 60) break;
+    }
+    if (ppm.length < 8) return null;
+    return { median: median(ppm), sample: ppm.length, year };
+  });
 }
 
 router.all("/v1/fr/biens-sous-cotes", async (req, res) => {
@@ -55,8 +68,21 @@ router.all("/v1/fr/biens-sous-cotes", async (req, res) => {
     dvfMedian(insee),
     callWorker("/v1/fr/immo", { city, cp, max }, 90_000).catch((e) => ({ error: String(e).slice(0, 120) })),
   ]);
-  if (!dvf) return res.status(502).json({ error: "no_dvf", hint: "not enough real sales (DVF) to compute a reliable median for this commune" });
   const listings = immoR?.listings || [];
+  // Le paiement x402 est déjà réglé quand on arrive ici : ne JAMAIS renvoyer une erreur
+  // vide si on a quelque chose d'utile. Sans médiane DVF on livre les annonces + le motif.
+  if (!dvf) {
+    return res.json({
+      source: "bienici (asking) x DVF (sold) — DEGRADED",
+      degraded: true,
+      reason: "DVF (official sold prices) unavailable for this commune right now — the upstream (Cerema) is slow/flaky. Retry in a few minutes: the median is cached 24h once computed.",
+      query: { city, cp, insee, minGap },
+      soldMedianPerM2: null,
+      listingsAnalyzed: listings.length,
+      candidatesCount: 0,
+      listings: listings.slice(0, max),
+    });
+  }
   if (!listings.length) return res.status(502).json({ error: "no_listings", detail: immoR?.error || null });
 
   const soldMedian = dvf.median;

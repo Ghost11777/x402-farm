@@ -1,6 +1,8 @@
 // Proxy vers le worker Mac mini (IP résidentielle, vrais navigateurs, sessions loggées).
 // Si WORKER_URL est défini (sur Vercel), les routes navigateur y sont déléguées.
 // Sinon (worker lui-même, ou dev), on exécute Playwright localement.
+import { sharedGet, sharedPut } from "./shared-cache.js";
+
 const WORKER_URL = (process.env.WORKER_URL || "").replace(/\/+$/, "");
 const WORKER_SECRET = process.env.WORKER_SECRET || "";
 export const usesWorker = !!WORKER_URL;
@@ -8,6 +10,9 @@ export const usesWorker = !!WORKER_URL;
 // Renvoie true si la requête a été servie par le worker (réponse déjà pipée).
 // opts.fallbackStatuses : statuts upstream sur lesquels on préfère le fallback local
 // (ex. 503 quand le mini n'a pas encore les credentials d'une source).
+// opts.onJson(json) : appelé quand le worker renvoie du JSON 2xx — permet à l'appelant de
+// mettre la réponse en cache (les routes navigateur coûtent 12-35 s, un hit de cache les
+// ramène à quelques ms).
 // Rend une URL via le mini résidentiel et RENVOIE le HTML (pour parsing côté backend).
 // Sert les routes structurées (immo, maps, amazon…) : elles ont besoin du HTML, pas d'un pipe.
 // Renvoie { html, servedBy } ou lève. waitFor : ms d'attente JS côté worker (si supporté).
@@ -53,8 +58,28 @@ export async function callWorker(path, params = {}, timeout = 60_000) {
   return upstream.json();
 }
 
+// Clé de cache stable pour une requête worker : chemin + paramètres triés.
+function workerCacheKey(req) {
+  const params = { ...req.query, ...(req.body || {}) };
+  const flat = Object.keys(params).sort().map((k) => `${k}=${String(params[k]).toLowerCase()}`).join("&");
+  return `worker:${req.path}?${flat}`;
+}
+
 export async function tryWorker(req, res, opts = {}) {
   if (!WORKER_URL) return false;
+  // Cache PARTAGÉ (Supabase) : ces routes coûtent 12-25 s de navigateur réel. Un acheteur
+  // qui redemande la même chose — ou un second acheteur sur la même requête — est servi en
+  // quelques ms, quelle que soit l'instance Vercel qui répond. opts.noCache pour l'exclure.
+  const ttl = opts.cacheTtlMs ?? 12 * 3600_000;
+  const ckey = opts.noCache ? null : workerCacheKey(req);
+  if (ckey) {
+    const hit = await sharedGet(ckey);
+    if (hit != null) {
+      res.set("x-cache", "shared-hit");
+      res.json(hit);
+      return true;
+    }
+  }
   try {
     // forcePost : les routes navigateur DOIVENT être servies par le mini (IP résidentielle).
     // On envoie toujours en POST avec les params fusionnés, pour que le worker réponde
@@ -84,6 +109,15 @@ export async function tryWorker(req, res, opts = {}) {
     const via = upstream.headers.get("x-served-by");
     if (via) res.set("x-served-by", via);
     const buf = Buffer.from(await upstream.arrayBuffer());
+    if (upstream.ok && /json/i.test(ct || "")) {
+      let parsed = null;
+      try { parsed = JSON.parse(buf.toString("utf8")); } catch { /* pas du JSON exploitable */ }
+      if (parsed && !parsed.error) {
+        if (opts.onJson) opts.onJson(parsed);
+        // Publication en tâche de fond : n'ajoute pas un aller-retour à la réponse.
+        if (ckey) sharedPut(ckey, parsed, ttl);
+      }
+    }
     res.send(buf);
     return true;
   } catch (e) {

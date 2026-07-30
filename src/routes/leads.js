@@ -6,8 +6,11 @@
 //   + un score de qualification (contactable, immatriculé, actif, établi).
 import { Router } from "express";
 import { callWorker } from "../lib/worker-proxy.js";
+import { sharedGet, sharedPut } from "../lib/shared-cache.js";
 
 const router = Router();
+const LEADS_HOT = new Map();
+function rememberLeads(k, v) { LEADS_HOT.set(k, v); setTimeout(() => LEADS_HOT.delete(k), 12 * 3600_000).unref?.(); }
 const REG = "https://recherche-entreprises.api.gouv.fr/search";
 const YEAR = 2026; // pas de Date.now() côté serverless déterministe -> constante d'ancienneté
 
@@ -121,6 +124,14 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
   const location = p.location || p.city || p.where || "";
   const max = Math.min(Math.max(Number(p.max || p.maxResults || 12) || 12, 1), 30);
   if (!activity) return res.status(400).json({ error: "missing_activity", hint: "provide ?activity=<business type>&location=<city>" });
+  // Maps (navigateur réel) + appariement au registre = ~25 s. Caché 12 h par requête :
+  // le 2e acheteur de la même recherche est servi en quelques ms.
+  const CKEY = `leads:${String(activity).toLowerCase()}|${String(location).toLowerCase()}|${max}`;
+  if (LEADS_HOT.has(CKEY)) return res.json({ ...LEADS_HOT.get(CKEY), cached: "memory" });
+  {
+    const shared = await sharedGet(CKEY);
+    if (shared) { rememberLeads(CKEY, shared); return res.json({ ...shared, cached: "shared" }); }
+  }
 
   let businesses;
   try {
@@ -151,7 +162,7 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
 
   leads.sort((a, b) => b.score - a.score);
   const matched = leads.filter((l) => l.company).length;
-  res.json({
+  const payload = {
     source: "google_maps + french_business_registry",
     query: { activity, location },
     count: leads.length,
@@ -162,7 +173,9 @@ router.all("/v1/fr/qualified-leads", async (req, res) => {
       warm: leads.filter((l) => l.tier === "WARM").length,
     },
     leads,
-  });
+  };
+  if (leads.length) { rememberLeads(CKEY, payload); sharedPut(CKEY, payload, 12 * 3600_000); }
+  res.json(payload);
 });
 
 export default router;
