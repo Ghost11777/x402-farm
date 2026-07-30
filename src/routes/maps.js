@@ -228,6 +228,7 @@ router.all("/v1/maps", async (req, res) => {
     if (!results.length) return res.status(502).json({ error: "no_results", query: { q, location }, hint: "Google Maps returned an empty feed (blocked or no match)." });
     res.json({
       source: "google_maps",
+      exit: exitMode(p) || "residential",
       query: { q, location },
       count: results.length,
       // Transparence : au-delà de `enriched`, phone/website/reviews restent nuls
