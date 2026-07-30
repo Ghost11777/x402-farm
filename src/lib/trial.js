@@ -11,9 +11,17 @@ const hashIp = (ip) => (ip ? createHash("sha256").update(ip + "x402farm").digest
 let globalCount = { day: "", n: 0 }; // approximation par instance, le vrai garde-fou est la pk
 
 export function buildTrialEligible(catalog) {
-  // Exclus : routes navigateur (compute lourd + worker mini). search/llm sont INCLUS
-  // — produits d'appel : coût amont ~$0.0002/appel, plafonné par le cap global quotidien.
-  const EXCLUDED = new Set(["/v1/extract", "/v1/render", "/v1/screenshot", "/v1/pdf", "/v1/links", "/v1/meta"]);
+  // Le gratuit ne sert QUE des routes à coût amont NUL (APIs publiques). Mesuré le
+  // 2026-07-30 : 937 IP ont pris du gratuit en 7 j, 2 ont converti (0,2 %). Offrir des
+  // routes qui NOUS coûtent (LLM=crédit DeepSeek, search=quota Serper, navigateur=mini +
+  // ZenRows) = brûler de l'argent pour zéro conversion. On les exclut toutes.
+  const EXCLUDED = new Set([
+    "/v1/extract", "/v1/render", "/v1/screenshot", "/v1/pdf", "/v1/links", "/v1/meta", // navigateur
+    "/v1/llm",                                                                          // crédit LLM
+    "/v1/search",                                                                       // quota Serper
+    "/v1/maps", "/v1/amazon", "/v1/fr/immo", "/v1/fr/leboncoin", "/v1/fr/seloger",      // mini + ZenRows
+    "/v1/fr/qualified-leads", "/v1/fr/deals", "/v1/fr/biens-sous-cotes", "/v1/unblock", // composites lourds
+  ]);
   const set = new Set();
   for (const e of catalog) {
     const [, path] = e.route.split(" ");
