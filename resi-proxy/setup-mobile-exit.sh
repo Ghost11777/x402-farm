@@ -148,14 +148,14 @@ PLEOF
 launchctl bootstrap system "$PLIST" 2>/dev/null || launchctl load -w "$PLIST" 2>/dev/null
 echo "→ pf réactivé au boot (com.x402farm.pf)"
 
-# --- 4. redémarrage + vérification réelle ------------------------------------
+# --- 4. vérification réelle (SANS redémarrer le proxy) ------------------------
+# ⚠️ RÈGLE : on ne redémarre JAMAIS resi-proxy ici. Le processus relit exits.json et
+# keys.json à CHAQUE requête : la nouvelle sortie est prise en compte à chaud. Un
+# redémarrage couperait les tunnels des clients en cours (arrivé le 2026-07-30 : un
+# client payant à 82 MB s'est fait tomber). Pour un changement de CODE, passer par
+# resi-proxy/safe-restart.sh, qui refuse si du trafic est en cours.
 export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
-PM2="$(ls "$HOME_DIR/.npm-global/bin/pm2" 2>/dev/null || command -v pm2)"
-if [ -n "$PM2" ]; then
-  sudo -u "$PROXY_USER" "$PM2" restart resi-proxy >/dev/null 2>&1 && echo "→ resi-proxy redémarré (pm2)"
-else
-  echo "⚠️  pm2 introuvable — redémarre le proxy à la main"
-fi
+echo "→ Config prise à chaud (exits.json relu à chaque requête) — aucun redémarrage"
 sleep 3
 echo
 echo "=== Vérification des sorties (IP publique réellement obtenue) ==="

@@ -45,6 +45,9 @@ const SECRET = process.env.PROXY_HMAC_SECRET
 const PORT = Number(process.env.PROXY_PORT || 8899);
 const BIND = process.env.PROXY_BIND || "127.0.0.1";
 const PROBE_EVERY_MS = Number(process.env.PROXY_PROBE_MS || 10 * 60 * 1000);
+// `--probe` en CLI est un AUTRE processus (durée de vie ~1 s) : il ne doit pas écraser
+// l'uptime du serveur, sinon la stabilité affichée aux acheteurs devient fausse.
+const IS_SERVER = !process.argv.includes("--probe");
 
 const load = () => { try { return JSON.parse(fs.readFileSync(KF, "utf8")); } catch { return {}; } };
 const save = (k) => fs.writeFileSync(KF, JSON.stringify(k, null, 2));
@@ -268,7 +271,17 @@ async function probeAll() {
     exits.residential.ok = false;
     exits.residential.error = "default route is on a MOBILE carrier — set Ethernet above Wi-Fi in Network > Set Service Order (residential tier suspended)";
   }
-  const state = { checkedAt: new Date().toISOString(), host: os.hostname(), exits };
+  // Uptime publié : sur un produit de proxy, la stabilité EST l'argument de vente. Un
+  // acheteur doit pouvoir la vérifier avant de payer (et nous, la surveiller).
+  // On conserve l'uptime écrit par le serveur quand c'est le CLI qui sonde.
+  let prev = {};
+  try { prev = JSON.parse(fs.readFileSync(STATE_FILE, "utf8")); } catch {}
+  const state = {
+    checkedAt: new Date().toISOString(), host: os.hostname(),
+    uptimeSec: IS_SERVER ? Math.round(process.uptime()) : (prev.uptimeSec ?? null),
+    startedAt: IS_SERVER ? new Date(Date.now() - process.uptime() * 1000).toISOString() : (prev.startedAt ?? null),
+    exits,
+  };
   try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2)); } catch {}
   return state;
 }

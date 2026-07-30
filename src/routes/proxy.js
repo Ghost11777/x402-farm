@@ -120,7 +120,11 @@ function issue(gb, tier = "residential") {
       gb,
       unit: "GB",
       tier,
-      exit: { ip: exit.ip, carrier: exit.isp, asn: exit.as, mobile: !!exit.mobile, country: exit.country, verified_at: state.checkedAt },
+      exit: {
+        ip: exit.ip, carrier: exit.isp, asn: exit.as, mobile: !!exit.mobile, country: exit.country,
+        verified_at: state.checkedAt,
+        uptime_hours: state.uptimeSec != null ? Number((state.uptimeSec / 3600).toFixed(2)) : null,
+      },
       ...(exit.remainingGB !== null && exit.remainingGB !== undefined
         ? { exit_allowance_left_gb: Number((exit.remainingGB - gb).toFixed(2)) } : {}),
       proxy: `http://${user}:${key}@${PROXY_HOST}`,
@@ -159,6 +163,10 @@ router.get("/free/proxy/status", async (_req, res) => {
         }]))
       : null,
     checked_at: state?.checkedAt || null,
+    // Stabilité de la sortie : un acheteur de bande passante veut savoir depuis quand le
+    // nœud tourne sans interruption avant d'engager son budget.
+    exit_uptime_hours: state?.uptimeSec != null ? Number((state.uptimeSec / 3600).toFixed(2)) : null,
+    exit_running_since: state?.startedAt || null,
     buy: { residential: "/v1/proxy/1gb", mobile: tiers.mobile ? "/v1/proxy/mobile/1gb" : null },
   });
 });
