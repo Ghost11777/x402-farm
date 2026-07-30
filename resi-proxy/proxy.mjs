@@ -49,8 +49,53 @@ const PROBE_EVERY_MS = Number(process.env.PROXY_PROBE_MS || 10 * 60 * 1000);
 // l'uptime du serveur, sinon la stabilité affichée aux acheteurs devient fausse.
 const IS_SERVER = !process.argv.includes("--probe");
 
-const load = () => { try { return JSON.parse(fs.readFileSync(KF, "utf8")); } catch { return {}; } };
-const save = (k) => fs.writeFileSync(KF, JSON.stringify(k, null, 2));
+// ⚠️ PERFORMANCE — cause d'un échec réel (2026-07-30) : chaque connexion faisait un
+// readFileSync de keys.json et chaque flush un writeFileSync. Une page légère passe, mais
+// Google Maps ouvre des dizaines de tunnels en parallèle : la boucle d'événements se bloque
+// sur le disque et la navigation n'aboutit jamais (timeout même à 90 s). On garde donc les
+// clés EN MÉMOIRE (rechargées si le fichier change sous nos pieds) et on écrit en asynchrone,
+// regroupé.
+let keysCache = null;
+let keysMtime = 0;
+const load = () => {
+  try {
+    const st = fs.statSync(KF);
+    if (!keysCache || st.mtimeMs !== keysMtime) {
+      keysCache = JSON.parse(fs.readFileSync(KF, "utf8"));
+      keysMtime = st.mtimeMs;
+    }
+  } catch { keysCache ||= {}; }
+  return keysCache;
+};
+let saveTimer = null;
+const save = (k) => {
+  keysCache = k;
+  if (saveTimer) return;                          // une écriture groupée suffit
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      fs.writeFileSync(KF, JSON.stringify(keysCache, null, 2));
+      keysMtime = fs.statSync(KF).mtimeMs;         // ne pas se recharger soi-même
+    } catch { /* disque indisponible : on garde la mémoire */ }
+  }, 1000);
+  saveTimer.unref?.();
+};
+// Écriture immédiate à l'arrêt : ne jamais perdre la consommation facturée.
+// ⚠️ INCIDENT DU 2026-07-30 : cette purge écrivait `{}` quand rien n'avait été chargé —
+// et `safe-restart.sh` lance `node proxy.mjs --probe` juste après le redémarrage, un
+// processus qui ne charge JAMAIS les clés. Résultat : keys.json écrasé, quotas et
+// consommation d'un client payant perdus. Deux verrous désormais :
+//   1. on n'écrit que si des clés ont réellement été chargées en mémoire ;
+//   2. seul le SERVEUR installe ces gestionnaires (le CLI --probe / --add-key jamais).
+const flushNow = () => {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (!keysCache || !Object.keys(keysCache).length) return;   // jamais d'écrasement à vide
+  try { fs.writeFileSync(KF, JSON.stringify(keysCache, null, 2)); } catch {}
+};
+if (IS_SERVER) {
+  for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flushNow(); process.exit(0); });
+  process.on("exit", flushNow);
+}
 
 // --- mint a key --------------------------------------------------------------
 if (process.argv.includes("--add-key")) {
