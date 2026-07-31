@@ -34,3 +34,4 @@ dist/
 # Dépôts git indépendants (leur propre historique) : ne pas les avaler ici
 honeypot-guard/
 mcp-server/
+.sol-wallet.secret

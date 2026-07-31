@@ -4,7 +4,11 @@ import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { ExactAvmScheme } from "@x402/avm/exact/server";
+import { ExactSvmScheme } from "@x402/svm/exact/server";
 import { USDC_MAINNET_ASA_ID } from "@x402/avm";
+// Solana mainnet (CAIP-2 tronquée à 32 car. attendue par le SDK/facilitateur CDP).
+// Le scheme SVM infère le mint USDC (EPjFW…) ; USDC-SPL réglé par le même facilitateur CDP.
+const SOL_MAINNET_NET = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
 // GoPlausible annonce le réseau Algorand par son genesis-hash COMPLET (le facilitateur
 // matche là-dessus), pas la CAIP-2 tronquée à 32 car. de ALGORAND_MAINNET_CAIP2.
 const ALGO_MAINNET_NET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
@@ -272,6 +276,12 @@ if (PAY_TO) {
   // donc on garde Base (revenu existant) + on ajoute Algorand. Sinon : comportement inchangé.
   const ALGO_PAY_TO = process.env.ALGO_PAY_TO;
   const CHALLENGE = Boolean(ALGO_PAY_TO);
+  // SOLANA : activé dès que SOL_PAY_TO (adresse base58) est posé, en mainnet non-challenge.
+  // Le facilitateur CDP règle À LA FOIS Base (EVM) ET Solana (USDC-SPL) → on garde Base
+  // (revenu existant) + on ajoute Solana. GATED : sans SOL_PAY_TO, comportement inchangé.
+  // ⚠️ Ne PAS poser SOL_PAY_TO en prod avant un paiement Solana réel réglé e2e (règle apprise
+  // avec Polygon/Arbitrum : annoncer une chaîne non réglée casse le seul agent qui tente).
+  const SOL_PAY_TO = process.env.SOL_PAY_TO;
 
   // Mainnet -> facilitateur Coinbase CDP authentifié (verify/settle + indexation Bazaar).
   // Testnet -> facilitateur public x402.org. Challenge -> GoPlausible (Base+Algorand).
@@ -284,16 +294,21 @@ if (PAY_TO) {
     facilitatorConfig = facilitator;
   }
   // Mainnet : plusieurs chaînes (l'agent paie depuis la sienne). Challenge : Base + Algorand.
-  const NETWORKS = CHALLENGE
+  const baseNets = CHALLENGE
     ? ["eip155:8453", ALGO_MAINNET_NET]
     : isMainnet
       ? (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim())
       : [NETWORK];
+  // Ajoute Solana en mainnet non-challenge si un wallet Solana d'encaissement est configuré.
+  const NETWORKS = (isMainnet && !CHALLENGE && SOL_PAY_TO && !baseNets.includes(SOL_MAINNET_NET))
+    ? [...baseNets, SOL_MAINNET_NET]
+    : baseNets;
   const isAlgo = (n) => n.startsWith("algorand:");
+  const isSol = (n) => n.startsWith("solana:");
   const facilitatorClient = new HTTPFacilitatorClient(facilitatorConfig);
   let resourceServer = new x402ResourceServer(facilitatorClient);
-  for (const n of NETWORKS) resourceServer = resourceServer.register(n, isAlgo(n) ? new ExactAvmScheme() : new ExactEvmScheme());
-  const payToFor = (n) => (isAlgo(n) ? ALGO_PAY_TO : PAY_TO);
+  for (const n of NETWORKS) resourceServer = resourceServer.register(n, isAlgo(n) ? new ExactAvmScheme() : isSol(n) ? new ExactSvmScheme() : new ExactEvmScheme());
+  const payToFor = (n) => (isAlgo(n) ? ALGO_PAY_TO : isSol(n) ? SOL_PAY_TO : PAY_TO);
   // Tolérance de méthode : les agents sondent en GET des routes POST (24 visiteurs/72 h
   // sur extract/render/screenshot) et inversement. Chaque route /v1 est payable en GET ET POST.
   const routes = Object.fromEntries(
