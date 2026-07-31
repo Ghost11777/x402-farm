@@ -1,5 +1,5 @@
 import express from "express";
-import { CATALOG } from "./catalog.js";
+import { CATALOG, RETIRED_PATHS } from "./catalog.js";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
@@ -329,6 +329,23 @@ if (PAY_TO) {
 } else {
   console.warn("[x402] PAY_TO absent — mode GRATUIT (dev/test uniquement)");
 }
+
+// Routes DATA BRUTE retirées (2026-07-30) : elles répondent 410 en réorientant vers les
+// CAPACITÉS. Un agent n'achète pas une info qu'il peut requêter lui-même ; on ne vend plus
+// que ce qu'il ne peut PAS faire seul. Placé avant les handlers (dont le code subsiste).
+app.use((req, res, next) => {
+  if (!RETIRED_PATHS.has(req.path)) return next();
+  res.status(410).json({
+    error: "route_retired",
+    message: "This raw-data route was retired. x402-farm now sells CAPABILITIES an agent can't run itself, not public data it can fetch on its own.",
+    try_instead: {
+      web_access: "/v1/extract, /v1/unblock (reach sites that block you)",
+      network: "/proxy (mobile/residential IP)",
+      intelligence: "/v1/llm, /v1/search, /v1/extract-structured",
+      decisions: "/v1/fr/kyb, /v1/fr/due-diligence (aggregated dossiers)",
+    },
+  });
+});
 
 app.use(diligenceRoutes);
 app.use(guardRoutes);
