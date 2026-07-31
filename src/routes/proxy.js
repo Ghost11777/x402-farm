@@ -112,8 +112,8 @@ export function proxyTierGuard() {
 
 // Volume d'un port dédié : suit l'enveloppe réelle de la SIM. À monter (env PORT_30D_GB)
 // quand l'abonnement passe à 100 Go+. Vendre plus de Go qu'on n'en a serait mentir.
-const PORT_30D_GB = Number(process.env.PORT_30D_GB || 10);
-const PORT_7D_GB = Number(process.env.PORT_7D_GB || 3);
+const PORT_30D_GB = Number(process.env.PORT_30D_GB || 100);
+const PORT_7D_GB = Number(process.env.PORT_7D_GB || 25);
 
 function issue(gb, tier = "residential", ttlDays = 30) {
   return async (_req, res) => {
@@ -275,8 +275,8 @@ ${row("Logging", "timestamp, exit, key tail and target host:port. Never any payl
 
 <section><h2>Buying</h2><div class="card">
 <div class="price">
-  <span><b>$9</b> — 7-day test port, 3 GB</span><span class="mono">/v1/proxy/port/7d</span>
-  <span><b>$29</b> — dedicated port, 30 days, 10 GB</span><span class="mono">/v1/proxy/port/30d</span>
+  <span><b>$19</b> — 7-day test port, up to 25 GB</span><span class="mono">/v1/proxy/port/7d</span>
+  <span><b>$75</b> — dedicated port, 30 days, up to 100 GB</span><span class="mono">/v1/proxy/port/30d</span>
   <span><b>$5</b> — metered bundle, 1 GB, 30 days</span><span class="mono">/v1/mobile-proxy/1gb</span>
   <span><b>$22</b> — metered bundle, 5 GB, 30 days</span><span class="mono">/v1/mobile-proxy/5gb</span>
 </div>
