@@ -1,57 +1,71 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# agent.sh — agent SMS autonome pour un téléphone Android, via Termux.
-# Il lit les SMS reçus par la SIM du téléphone et les POUSSE vers api.x-402.online, qui les
-# vend aux agents x402. Tourne seul, sans câble ni PC. Source = un numéro physique = le moat.
+# agent.sh — installe et lance l'agent SMS sur un téléphone Android (Termux).
+# Il lit les SMS reçus par la SIM et les POUSSE vers api.x-402.online. Tourne seul, sans PC.
+# Tout le travail est fait en Node (une seule dépendance) — pas d'openssl/jq/sed à trouver.
 #
-# INSTALLATION (une fois) :
-#   1) Installe Termux + Termux:API depuis F-Droid (pas le Play Store, versions à jour).
-#   2) Ouvre Termux et colle :
-#        curl -s https://api.x-402.online/phone-agent.sh | INGEST_SECRET=xxxxx bash
-#   3) Accorde la permission SMS quand Android la demande.
-# L'agent se relance au démarrage de Termux (ligne ajoutée à ~/.bashrc).
+#   curl -s https://api.x-402.online/phone-agent.sh | INGEST_SECRET=xxxxx bash
+#   (ajoute MY_NUMBER=+590690XXXXXX devant si le numéro n'est pas détecté)
 set -uo pipefail
 
 BACKEND="${BACKEND:-https://api.x-402.online}"
 SECRET="${INGEST_SECRET:-}"
-POLL="${POLL:-15}"                 # secondes entre deux relevés
-[ -z "$SECRET" ] && { echo "❌ INGEST_SECRET manquant. Relance avec: INGEST_SECRET=... bash"; exit 1; }
+MY_NUMBER="${MY_NUMBER:-}"
+POLL="${POLL:-15}"
+[ -z "$SECRET" ] && { echo "❌ INGEST_SECRET manquant. Relance: INGEST_SECRET=... bash"; exit 1; }
 
-echo "→ Installation des dépendances (nodejs, termux-api, jq)…"
-pkg update -y >/dev/null 2>&1
-pkg install -y nodejs termux-api jq coreutils >/dev/null 2>&1
+echo "→ Installation de Node et Termux:API (patiente, ~1 min)…"
+yes | pkg update >/dev/null 2>&1
+yes | pkg install nodejs termux-api >/dev/null 2>&1
 
-# permissions + réveil permanent
+if ! command -v node >/dev/null 2>&1; then
+  echo "❌ Node ne s'est pas installé. Vérifie ta connexion et relance la commande."; exit 1
+fi
+echo "→ Node OK ($(node -v))."
 termux-wake-lock 2>/dev/null || true
-echo "→ Autorise l'accès aux SMS si Android le demande…"
-termux-sms-list -l 1 >/dev/null 2>&1 || true
 
-# numéro + opérateur du téléphone
-INFO="$(termux-telephony-deviceinfo 2>/dev/null || echo '{}')"
-PHONE="$(echo "$INFO" | jq -r '.phone_number // empty')"
-CARRIER="$(echo "$INFO" | jq -r '.network_operator_name // .sim_operator_name // empty')"
-COUNTRY="$(echo "$INFO" | jq -r '.network_country_iso // .sim_country_iso // empty' | tr 'a-z' 'A-Z')"
-[ -z "$PHONE" ] && PHONE="${MY_NUMBER:-}"     # certains opérateurs ne l'exposent pas → MY_NUMBER=+590...
-[ -z "$PHONE" ] && { echo "⚠️  Numéro non détecté. Relance avec MY_NUMBER=+590690XXXXXX INGEST_SECRET=... bash"; exit 1; }
-echo "→ Téléphone : $PHONE  ($CARRIER / $COUNTRY)"
+# --- l'agent, en Node (robuste : crypto + fetch intégrés, appelle les cmd termux-*) ---
+DIR="$HOME/x402-sms-agent"; mkdir -p "$DIR"
+cat > "$DIR/agent.mjs" <<'NODE'
+import crypto from "node:crypto";
+import { execSync } from "node:child_process";
+const BACKEND = process.env.BACKEND, SECRET = process.env.INGEST_SECRET;
+const POLL = Number(process.env.POLL || 15);
+const sh = (c) => { try { return execSync(c, { encoding: "utf8", timeout: 15000 }); } catch { return ""; } };
 
-# HMAC(sha256, SECRET, "phone.ts") — même schéma que le backend
-sign() { printf '%s' "$1.$2" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.*= //'; }
+// numéro + opérateur
+let info = {}; try { info = JSON.parse(sh("termux-telephony-deviceinfo") || "{}"); } catch {}
+let phone = process.env.MY_NUMBER || info.phone_number || "";
+const carrier = info.network_operator_name || info.sim_operator_name || "";
+const country = (info.network_country_iso || info.sim_country_iso || "").toUpperCase();
+if (!phone) { console.log("⚠️  Numéro non détecté. Relance avec MY_NUMBER=+590690XXXXXX INGEST_SECRET=... bash"); process.exit(1); }
+console.log(`→ Téléphone : ${phone}  (${carrier} / ${country})`);
 
-push() {
-  local ts; ts="$(date +%s)"
-  local sig; sig="$(sign "$PHONE" "$ts")"
-  # 10 derniers SMS reçus, remis au format {sender, body, received_at}
-  local msgs
-  msgs="$(termux-sms-list -l 10 -t inbox 2>/dev/null | jq -c '[.[] | {sender: .number, body: .body, received_at: (.received // now|todate)}]' 2>/dev/null || echo '[]')"
-  curl -s -m 12 -X POST "$BACKEND/sms/ingest" -H 'content-type: application/json' \
-    -d "$(jq -n --arg p "$PHONE" --arg c "$CARRIER" --arg co "$COUNTRY" --arg ts "$ts" --arg sig "$sig" --argjson m "$msgs" \
-          '{phone:$p, carrier:$c, country:$co, ts:($ts|tonumber), sig:$sig, messages:$m}')" >/dev/null 2>&1
+async function push() {
+  let msgs = [];
+  try {
+    const raw = JSON.parse(sh("termux-sms-list -l 10 -t inbox") || "[]");
+    msgs = raw.map((m) => ({ sender: m.number, body: m.body, received_at: new Date((m.received ? Date.parse(m.received) : Date.now())).toISOString() }));
+  } catch {}
+  const ts = Math.floor(Date.now() / 1000);
+  const sig = crypto.createHmac("sha256", SECRET).update(`${phone}.${ts}`).digest("hex");
+  try {
+    const r = await fetch(`${BACKEND}/sms/ingest`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone, carrier, country, ts, sig, messages: msgs }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) console.log(`  push ${r.status}: ${j.error || ""}`);
+  } catch (e) { /* réseau : on réessaie au prochain tour */ }
 }
+console.log(`✅ Agent lancé. Pousse les SMS toutes les ${POLL}s. Tu peux fermer Termux (garde le tel allumé).`);
+for (;;) { await push(); await new Promise((r) => setTimeout(r, POLL * 1000)); }
+NODE
 
-# auto-relance au prochain lancement de Termux
-grep -q 'x402-sms-agent' ~/.bashrc 2>/dev/null || \
-  echo '[ -f ~/x402-sms-agent/agent.sh ] && (INGEST_SECRET='"$SECRET"' MY_NUMBER='"$PHONE"' nohup bash ~/x402-sms-agent/agent.sh >/dev/null 2>&1 &)  # x402-sms-agent' >> ~/.bashrc
-mkdir -p ~/x402-sms-agent && cp "$0" ~/x402-sms-agent/agent.sh 2>/dev/null || true
+# relance auto au prochain lancement de Termux
+if ! grep -q 'x402-sms-agent' "$HOME/.bashrc" 2>/dev/null; then
+  echo "[ -f \$HOME/x402-sms-agent/agent.mjs ] && (INGEST_SECRET='$SECRET' MY_NUMBER='$MY_NUMBER' BACKEND='$BACKEND' nohup node \$HOME/x402-sms-agent/agent.mjs >/dev/null 2>&1 &)  # x402-sms-agent" >> "$HOME/.bashrc"
+fi
 
-echo "✅ Agent lancé. Le téléphone pousse ses SMS toutes les ${POLL}s. Tu peux fermer Termux (garde le tel allumé)."
-while true; do push; sleep "$POLL"; done
+echo "→ Lecture des SMS autorisée ? (Android a dû le demander.)"
+INGEST_SECRET="$SECRET" MY_NUMBER="$MY_NUMBER" BACKEND="$BACKEND" POLL="$POLL" node "$DIR/agent.mjs"
