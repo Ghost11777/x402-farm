@@ -40,6 +40,7 @@ import amazonRoutes from "./routes/amazon.js";
 import immoRoutes from "./routes/immo.js";
 import extractStructuredRoutes from "./routes/extract-structured.js";
 import landingRoutes from "./routes/landing.js";
+import rentRoutes from "./routes/rent.js";
 import leadsRoutes from "./routes/leads.js";
 import enrichRoutes from "./routes/enrich.js";
 import dealsRoutes from "./routes/deals.js";
@@ -227,6 +228,7 @@ app.use(discoveryRoutes);
 app.use(mcpRoutes);
 app.use(demoRoutes);
 app.use(landingRoutes);
+app.use(rentRoutes);
 app.use(freeRoutes);
 
 // ===== Accès par clé API interne (canaux non-x402 : Apify, RapidAPI…) =====
