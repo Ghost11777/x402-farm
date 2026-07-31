@@ -68,7 +68,7 @@ async function handle(msg, base, pay, clientIp) {
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "x402-farm", version: "1.0.0" },
         instructions:
-          "Pay-per-call tools via x402 (USDC on Base/Polygon/Arbitrum). Call a tool without payment to get the x402 requirements in _meta.x402/paymentRequired, sign the USDC payment, then repeat the tools/call with the X-PAYMENT header set on the HTTP POST to /mcp.",
+          "Pay-per-call tools via x402 (USDC on Base or Solana). Call a tool without payment to get the x402 requirements in _meta.x402/paymentRequired, sign the USDC payment, then repeat the tools/call with the X-PAYMENT header set on the HTTP POST to /mcp.",
       });
     case "notifications/initialized":
     case "notifications/cancelled":

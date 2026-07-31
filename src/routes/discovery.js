@@ -30,7 +30,7 @@ router.get("/llms.txt", (req, res) => {
   const lines = [
     "# x402-farm",
     "",
-    `> ${CATALOG.length} pay-per-call APIs for AI agents. Crypto & DeFi: token market data, **honeypot / rug-pull security checks** (verdict before you trade), DeFi yields, gas, trending & new pools across 8 chains. Web: **residential-IP scraping** that reaches sites blocking datacenter/cloud IPs (Firecrawl/ScrapingBee territory, a fraction of the price), and a **residential PROXY by the GB** (/v1/proxy/1gb|5gb|20gb — route any HTTP/HTTPS traffic through a real residential IP, from $2/GB, cheaper than Browserbase/Bright Data). Safety: an **agent input-firewall** that flags prompt-injection / exfil / scam in untrusted content. Plus cheap LLM inference, and deep global company data (US SEC EDGAR, UK Companies House, FR SIREN/KYB). x402 (USDC on Base/Polygon/Arbitrum), no account, no API key.`,
+    `> ${CATALOG.length} pay-per-call APIs for AI agents. **The rare capability you can't get elsewhere: a real MOBILE 4G proxy on a France/Guadeloupe carrier IP (Orange, AS16028)** — the hardest class of IP to block, and a France/DOM geo almost no provider offers. Dedicated port from $75/mo (up to 100 GB) or metered from $5/GB — /v1/proxy/port/30d · /v1/mobile-proxy/1gb. Also a **residential proxy by the GB** (from $3/GB, cheaper than Browserbase/Bright Data) and **residential-IP scraping** that reaches sites blocking datacenter/cloud IPs (Firecrawl/ScrapingBee territory, a fraction of the price). Plus token honeypot/rug-pull security checks, an **agent input-firewall** (prompt-injection/scam guard), cheap LLM inference, and deep global company data (US SEC EDGAR, UK Companies House, FR SIREN/KYB). x402 (USDC on **Base or Solana**), no account, no API key.`,
     "",
     `Machine-readable catalog: ${base}/ (JSON) and ${base}/openapi.json`,
     `Discovery: ${base}/.well-known/x402 · ${base}/.well-known/mcp · ${base}/.well-known/agent-skills.json`,
@@ -142,7 +142,7 @@ router.get("/.well-known/x402", (req, res) => {
     x402Version: 2,
     name: "x402-farm",
     description:
-      "Pay-per-call APIs for AI agents: crypto & DeFi market data + token security/honeypot checks, residential-IP web scraping (bypasses datacenter blocks), an agent input-firewall (prompt-injection/scam guard), cheap LLM inference, and global company data (US/UK/FR). USDC on Base/Polygon/Arbitrum, no account, no API key.",
+      "Pay-per-call APIs for AI agents. Rare capability: a real MOBILE 4G proxy on a France/Guadeloupe carrier IP (Orange, AS16028) — hardest IP class to block, dedicated port from $75/mo or metered from $5/GB. Plus residential proxy & residential-IP scraping (bypasses datacenter blocks), token security/honeypot checks, an agent input-firewall, cheap LLM inference, and global company data (US/UK/FR). USDC on Base or Solana, no account, no API key.",
     payment: { protocol: "x402", networks: NETWORKS, asset: "USDC", payTo: PAY_TO },
     discovery: {
       catalog: `${base}/`,
