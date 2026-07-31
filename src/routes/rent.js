@@ -9,8 +9,8 @@ const SOL_PAYTO = "3tvSUk2R16rrL4eo2diYpMUsBH1wa3tafqJE44x3bVgs";
 
 const page = (contact) => `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>French & Guadeloupe 4G Mobile Proxy — dedicated, unbannable, pay in crypto</title>
-<meta name="description" content="Dedicated 4G mobile proxy on a real French / Guadeloupe (Orange, AS16028) carrier IP — the hardest class of IP to block, a rare France/DOM geo almost no provider offers. For multi-account social, ad verification, French scraping. Pay in USDC on Base or Solana. No KYC, instant.">
+<title>French & Guadeloupe 4G Mobile Proxy — for agencies, ad verification & French data</title>
+<meta name="description" content="Dedicated 4G mobile proxy on a real French / Guadeloupe (Orange, AS16028) carrier IP — a trusted, geo-accurate French mobile exit for social media agencies, ad verification, SERP tracking and French web scraping. Pay in USDC on Base or Solana. Instant, no signup.">
 <style>
 :root{--bg:#0a0e17;--card:#121826;--card2:#0d1320;--line:#1e2636;--fg:#e8edf6;--dim:#98a4b8;--faint:#6b7688;--acc:#00e58a;--acc2:#5b8cff;--warn:#f5b544;--mono:ui-monospace,"SF Mono",Menlo,monospace}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -54,9 +54,9 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
 </style></head><body>
 <div class="wrap">
 <header>
-  <p class="eyebrow">Real physical SIM · Orange AS16028 · No KYC</p>
+  <p class="eyebrow">Real physical SIM · Orange AS16028 · Instant, no signup</p>
   <h1>Dedicated <b>4G mobile proxy</b> on a real French &amp; Guadeloupe carrier IP.</h1>
-  <p class="sub">The hardest class of IP to block — a rare France/DOM geo almost no provider offers. Built for multi-account operators who can't afford a ban.</p>
+  <p class="sub">A trusted, geo-accurate French mobile exit — for agencies, ad verification, SERP tracking and data teams that need an IP sites actually trust. A rare France/DOM geo almost no provider offers.</p>
   <div class="live" id="live"><span class="dot" id="dot"></span><span id="livetxt">checking live exit…</span></div>
   <div class="cta">
     <a class="btn" href="#pricing">Get a dedicated port</a>
@@ -68,9 +68,9 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <h2>Why it beats a datacenter or a reseller pool</h2>
   <p class="muted">Sites treat a mobile-carrier IP like a real person on their phone — a fundamentally different level of trust than a datacenter range gets.</p>
   <div class="grid">
-    <div class="card"><div class="ic">📵</div><h3>Unbannable class of IP</h3><p>A site can't ban you without banning the carrier NAT shared by thousands of real Orange subscribers. The egress self-rotates as the carrier reassigns it.</p></div>
+    <div class="card"><div class="ic">🛡️</div><h3>Highest-trust IP class</h3><p>Sites treat a mobile-carrier IP like a real French subscriber — the reliability agencies and scrapers need to reach pages that block datacenter and cloud ranges.</p></div>
     <div class="card"><div class="ic">🇫🇷</div><h3>Rare France / DOM geo</h3><p>A genuine Orange (AS16028) mobile IP in France / Guadeloupe. Everyone else ships US/EU-major carriers — this geo is almost impossible to find.</p></div>
-    <div class="card"><div class="ic">📱</div><h3>A physical SIM we run</h3><p>Not a resold pool. Your own dedicated, sticky port — one client per line, the consistency multi-accounting needs.</p></div>
+    <div class="card"><div class="ic">📱</div><h3>A physical SIM we run</h3><p>Not a resold pool. Your own dedicated, sticky port — one client per line, the stable consistent exit agencies and automation rely on.</p></div>
     <div class="card"><div class="ic">🛰️</div><h3>Live-verified exit</h3><p>Carrier / ASN / uptime probed every 10 minutes and returned with your key. If no mobile exit is up, you get a 503 — never a charge.</p></div>
   </div>
 </section>
@@ -78,10 +78,10 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
 <section>
   <h2>Who rents these</h2>
   <div class="use">
-    <div><b>Multi-account social</b><br>FB · Instagram · TikTok farms without bans</div>
+    <div><b>Social media agencies</b><br>manage client accounts on a clean, consistent French IP</div>
     <div><b>Ad verification</b><br>check French-targeted campaigns from a real FR mobile</div>
-    <div><b>French scraping</b><br>Cdiscount · Fnac · LeBonCoin · Google.fr SERP</div>
-    <div><b>Geo-restricted FR</b><br>France.tv · Canal+ · TF1 · M6 · Molotov</div>
+    <div><b>Scraping &amp; SERP</b><br>Cdiscount · Fnac · LeBonCoin · Google.fr rankings</div>
+    <div><b>Market research</b><br>monitor the French market &amp; competitors as a local</div>
   </div>
 </section>
 
@@ -118,7 +118,7 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0 60px;colo
   <details><summary>Why France / Guadeloupe specifically?</summary><p>It's a real Orange (AS16028) carrier IP — the same pool ordinary French smartphones get, so it's trusted and hard to ban. The Guadeloupe/DOM geo is rare; if you need metropolitan France, ask us.</p></details>
   <details><summary>How fast is delivery?</summary><p>Same day. Crypto payments settle in seconds; we issue your credentials as soon as we confirm the transaction.</p></details>
   <details><summary>Refunds?</summary><p>If no mobile exit is verified live when you buy via the API, you're not charged (503). For manual orders, if we can't deliver a working port we refund in full.</p></details>
-  <details><summary>Do you keep logs / need my ID?</summary><p>No KYC. We run the SIM ourselves — no reselling a shared pool.</p></details>
+  <details><summary>Do I need to sign up?</summary><p>No signup required — pay and go. We run the SIM ourselves, so you get a dedicated line, not a slice of a resold pool.</p></details>
 </section>
 
 <footer>
