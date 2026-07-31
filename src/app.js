@@ -15,6 +15,7 @@ import diligenceRoutes from "./routes/diligence.js";
 import guardRoutes from "./routes/guard.js";
 import cryptoRoutes from "./routes/crypto.js";
 import proxyRoutes, { proxyTierGuard } from "./routes/proxy.js";
+import smsRoutes from "./routes/sms.js";
 import mcpRoutes from "./routes/mcp.js";
 import demoRoutes from "./routes/demo.js";
 import freeRoutes from "./routes/free.js";
@@ -350,6 +351,7 @@ app.use((req, res, next) => {
 app.use(diligenceRoutes);
 app.use(guardRoutes);
 app.use(cryptoRoutes);
+app.use(smsRoutes);
 app.use(proxyRoutes);
 app.use(webRoutes);
 app.use(mapsRoutes);

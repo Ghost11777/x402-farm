@@ -2,6 +2,17 @@ import { Router } from "express";
 import { CATALOG } from "../catalog.js";
 
 const router = Router();
+
+// Sert l'agent SMS du téléphone (installation Termux en une ligne). Public.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+router.get("/phone-agent.sh", (_req, res) => {
+  try {
+    const f = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "phone-agent", "agent.sh");
+    res.type("text/x-shellscript").send(readFileSync(f, "utf8"));
+  } catch { res.status(404).send("# agent not found"); }
+});
 const PAY_TO = process.env.PAY_TO || "";
 const NETWORKS = (process.env.NETWORKS || "eip155:8453,eip155:137,eip155:42161").split(",").map((s) => s.trim());
 

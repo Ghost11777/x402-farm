@@ -266,6 +266,17 @@ if (process.env.OPENAI_API_KEY || process.env.LLM_API_KEY) {
   });
 }
 
+CATALOG.push({
+  route: "GET /v1/sms/number", price: "$0.05",
+  desc: "Rent a REAL mobile phone number to receive an SMS/OTP. The number is a physical SIM in a phone we run — the hardest class of number to block (not VoIP). Returns a number + a poll URL. Then read the code with /v1/sms/inbox. The only OTP-reception service payable in USDC on x402. Free availability check: /free/sms/status",
+  bazaar: { method: "GET", input: {}, output: { example: { phone: "+590690XXXXXX", carrier: "Orange", country: "GP", poll: "/v1/sms/inbox?phone=…&since=…" } } },
+});
+CATALOG.push({
+  route: "GET /v1/sms/inbox", price: "$0.02",
+  desc: "Read SMS received by a rented number since a given time, with the OTP code auto-extracted. Poll after /v1/sms/number. Query: ?phone=&since=<ISO time>",
+  bazaar: { method: "GET", input: { phone: "+590690XXXXXX", since: "2026-07-30T12:00:00Z" }, output: { example: { phone: "+590690XXXXXX", count: 1, otp: "483920", messages: [{ sender: "Google", body: "G-483920 is your code" }] } } },
+});
+
 // ===== MÉNAGE 2026-07-30 : on retire les DATA BRUTE passe-plat =====
 // Un agent n'achète pas une info qu'il peut requêter lui-même. On ne garde que des
 // CAPACITÉS (proxy, navigateur, LLM, déblocage) et des DÉCISIONS (dossiers agrégés).
