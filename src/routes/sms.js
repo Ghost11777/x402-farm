@@ -10,6 +10,17 @@ import { Router } from "express";
 import crypto from "node:crypto";
 
 const router = Router();
+
+function extractOtp(text) {
+  // joint les codes en 2 groupes (WhatsApp "812-459" / "812 459") avant extraction
+  const t = String(text || "").replace(/(\d{3})[-\s](\d{3})\b/g, "$1$2");
+  // 1) code annoncé par un mot-clé (code/otp/pin/is/G-…)
+  const kw = t.match(/(?:code|otp|pin|c[oó]digo|is|:|\bG-)\D{0,4}(\d{4,8})(?!\d)/i);
+  if (kw) return kw[1];
+  // 2) sinon, une séquence ISOLÉE de 4-8 chiffres (pas au milieu d'un nombre plus long)
+  const iso = t.match(/(?<!\d)(\d{4,8})(?!\d)/);
+  return iso ? iso[1] : null;
+}
 const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const SB_KEY = process.env.SUPABASE_ANON_KEY || "";
 const INGEST_SECRET = process.env.SMS_INGEST_SECRET || "";
@@ -62,8 +73,9 @@ router.all("/v1/sms/inbox", async (req, res) => {
   const since = p.since ? new Date(p.since) : null;
   try {
     const msgs = await rpc("sms_inbox", { p_phone: String(phone), p_since: since ? since.toISOString() : null });
-    // extraction opportuniste du code OTP (4 à 8 chiffres) du dernier message
-    const otp = (Array.isArray(msgs) && msgs[0]) ? (String(msgs[0].body).match(/\b(\d{4,8})\b/) || [])[1] || null : null;
+    // extraction du code OTP : priorité aux codes après un mot-clé, sinon une séquence
+    // isolée de 4-8 chiffres. Un OTP fait 4 à 8 chiffres (une séquence plus longue = pas un code).
+    const otp = (Array.isArray(msgs) && msgs[0]) ? extractOtp(String(msgs[0].body)) : null;
     res.json({ phone, count: Array.isArray(msgs) ? msgs.length : 0, otp, messages: msgs });
   } catch (e) { res.status(502).json({ error: String(e.message).slice(0, 80) }); }
 });
