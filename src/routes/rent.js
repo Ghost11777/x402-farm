@@ -137,10 +137,11 @@ fetch("/free/proxy/status").then(r=>r.json()).then(s=>{
 </body></html>`;
 
 router.get("/rent", (_req, res) => {
-  const c = process.env.ORDER_CONTACT || "";
+  const c = (process.env.ORDER_CONTACT || "").trim();
+  const isEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c); // a real email, not a @telegram handle
   const contact = c
-    ? (c.includes("@") && !c.startsWith("http") ? { href: "mailto:" + c, label: "Order — email us" }
-       : { href: c.startsWith("http") ? c : "https://t.me/" + c.replace(/^@/, ""), label: "Order — message us" })
+    ? (isEmail ? { href: "mailto:" + c, label: "Order — email us" }
+       : { href: c.startsWith("http") ? c : "https://t.me/" + c.replace(/^@/, ""), label: "Order — message us on Telegram" })
     : { href: "/proxy", label: "See live specs to order" };
   res.type("html").send(page(contact));
 });
