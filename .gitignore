@@ -35,3 +35,4 @@ dist/
 honeypot-guard/
 mcp-server/
 .sol-wallet.secret
+.sol-buyer.secret
